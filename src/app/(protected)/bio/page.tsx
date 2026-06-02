@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { Globe, Sparkles, Lock } from 'lucide-react'
 import { C } from '@/lib/atlas'
 
