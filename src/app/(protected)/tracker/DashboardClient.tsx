@@ -128,9 +128,11 @@ export default function DashboardClient({ schools, initialApplications }: Props)
 
     const tick = () => {
       const ZONE = 160
-      if (lastY < ZONE && lastY > 0) {
-        const speed = Math.ceil(14 * (1 - lastY / ZONE))
-        scrollEl.scrollTop -= speed
+      const vh = window.innerHeight
+      if (lastY > 0 && lastY < ZONE) {
+        scrollEl.scrollTop -= Math.ceil(14 * (1 - lastY / ZONE))
+      } else if (lastY > 0 && lastY > vh - ZONE) {
+        scrollEl.scrollTop += Math.ceil(14 * (1 - (vh - lastY) / ZONE))
       }
       frame = requestAnimationFrame(tick)
     }
