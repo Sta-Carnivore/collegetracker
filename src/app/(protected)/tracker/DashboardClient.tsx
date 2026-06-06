@@ -161,8 +161,9 @@ export default function DashboardClient({ schools, initialApplications }: Props)
   }
 
   function handleDragStart(e: React.DragEvent, schoolId: string) {
-    setDraggingId(schoolId)
     e.dataTransfer.effectAllowed = 'move'
+    // Defer state update so React re-render doesn't cancel the native drag
+    setTimeout(() => setDraggingId(schoolId), 0)
   }
 
   function handleDragEnd() {
