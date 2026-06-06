@@ -39,14 +39,7 @@ function getDeadline(school: School, appType: string | null | undefined): string
   return fmtDate(school.deadline_ea ?? school.deadline_ed ?? school.deadline_rd) ?? '—'
 }
 
-const ROUND_OPTIONS: { value: ApplicationType | ''; label: string }[] = [
-  { value: '',        label: 'No round' },
-  { value: 'EA',     label: 'EA' },
-  { value: 'REA',    label: 'REA' },
-  { value: 'ED',     label: 'ED' },
-  { value: 'RD',     label: 'RD' },
-  { value: 'Rolling', label: 'Rolling' },
-]
+const ROUND_OPTS = ['EA', 'REA', 'ED', 'RD', 'Rolling'] as const
 
 export default function SchoolCard({ school, application, onOpen, onUpdate, dragProps }: Props) {
   const [status, setStatus] = useState<ApplicationStatus>(application?.status ?? 'not_started')
@@ -125,18 +118,22 @@ export default function SchoolCard({ school, application, onOpen, onUpdate, drag
         </select>
       </div>
 
-      {/* Round selector — hidden for UC schools */}
+      {/* Round selector — pill buttons so drag still works */}
       {!school.name.startsWith('University of California-') && (
-        <select
-          value={appType ?? ''}
-          onChange={e => handleRoundChange(e.target.value)}
-          className="text-xs font-medium px-2 py-1 rounded-lg cursor-pointer focus:outline-none w-full"
-          style={{ background: C.bgSoft, color: appType ? C.ink : C.inkFaint, border: `1px solid ${C.border}` }}
-        >
-          {ROUND_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+        <div className="flex gap-1 flex-wrap">
+          {ROUND_OPTS.map(r => (
+            <button
+              key={r}
+              onClick={e => { e.stopPropagation(); handleRoundChange(appType === r ? '' : r) }}
+              className="text-xs px-2 py-0.5 rounded-full transition-all"
+              style={appType === r
+                ? { background: C.teal, color: 'white', border: `1px solid ${C.teal}` }
+                : { background: C.bgSoft, color: C.inkMuted, border: `1px solid ${C.border}` }}
+            >
+              {r}
+            </button>
           ))}
-        </select>
+        </div>
       )}
 
       {/* Meta */}
