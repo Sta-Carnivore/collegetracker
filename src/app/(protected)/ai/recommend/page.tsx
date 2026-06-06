@@ -185,15 +185,19 @@ export default function RecommendPage() {
         <div className="rounded-2xl p-16 text-center"
           style={{ border: `2px dashed ${C.border}`, background: C.card }}>
           <div className="flex gap-6 justify-center text-xs mb-8" style={{ color: C.inkFaint }}>
-            {(['likely', 'match', 'reach'] as const).map(type => (
-              <div key={type} className="flex flex-col items-center gap-1.5">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                  style={{ background: MATCH_CONFIG[type].pale }}>
-                  <MATCH_CONFIG[type].Icon size={14} style={{ color: MATCH_CONFIG[type].color }}/>
+            {(['likely', 'match', 'reach'] as const).map(type => {
+              const cfg = MATCH_CONFIG[type]
+              const Ico = cfg.Icon
+              return (
+                <div key={type} className="flex flex-col items-center gap-1.5">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                    style={{ background: cfg.pale }}>
+                    <Ico size={14} style={{ color: cfg.color }}/>
+                  </div>
+                  <span>{cfg.label}</span>
                 </div>
-                <span>{MATCH_CONFIG[type].label}</span>
-              </div>
-            ))}
+              )
+            })}
           </div>
           <p style={{ color: C.inkMuted, fontWeight: 500, marginBottom: 4 }}>
             Upgrade to Pro to get personalized school matches.

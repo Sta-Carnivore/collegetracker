@@ -8,11 +8,19 @@ import { getNotificationDate } from '@/lib/rounds'
 import { daysUntil, deadlineUrgency, formatDays } from '@/lib/deadline'
 import { C } from '@/lib/atlas'
 
+interface DragProps {
+  draggable: boolean
+  onDragStart: (e: React.DragEvent) => void
+  onDragEnd: () => void
+  isDragging: boolean
+}
+
 interface Props {
   school: School
   application: Application | null
   onOpen: () => void
   onUpdate: (fields: Partial<{ status: ApplicationStatus; supplemental_essays_done: number }>) => void
+  dragProps?: DragProps
 }
 
 const allStatuses = Object.keys(statusConfig) as ApplicationStatus[]
@@ -31,7 +39,7 @@ function deadline(school: School, appType: string | null) {
   return fmt(school.deadline_ea ?? school.deadline_ed ?? school.deadline_rd)
 }
 
-export default function SchoolRow({ school, application, onOpen, onUpdate }: Props) {
+export default function SchoolRow({ school, application, onOpen, onUpdate, dragProps }: Props) {
   const [status, setStatus] = useState<ApplicationStatus>(application?.status ?? 'not_started')
   const [essaysDone, setEssaysDone] = useState(application?.supplemental_essays_done ?? 0)
 
@@ -63,8 +71,16 @@ export default function SchoolRow({ school, application, onOpen, onUpdate }: Pro
   return (
     <tr
       className="group transition-colors"
-      style={{ borderBottom: `1px solid ${C.border}` }}
-      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = C.bgSoft}
+      draggable={dragProps?.draggable ?? false}
+      onDragStart={dragProps?.onDragStart}
+      onDragEnd={dragProps?.onDragEnd}
+      style={{
+        borderBottom: `1px solid ${C.border}`,
+        opacity: dragProps?.isDragging ? 0.35 : 1,
+        cursor: dragProps?.draggable ? 'grab' : 'default',
+        transition: 'opacity 0.15s',
+      }}
+      onMouseEnter={e => { if (!dragProps?.isDragging) (e.currentTarget as HTMLElement).style.background = C.bgSoft }}
       onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
     >
       <td className="py-3 pl-4 pr-2">

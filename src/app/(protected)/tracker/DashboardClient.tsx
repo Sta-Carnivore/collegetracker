@@ -98,6 +98,8 @@ export default function DashboardClient({ schools, initialApplications }: Props)
   const [sortBy, setSortBy]           = useState<'name' | 'deadline'>('deadline')
   const [drawerSchool, setDrawerSchool] = useState<School | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [draggingId, setDraggingId]     = useState<string | null>(null)
+  const [dragOverGroup, setDragOverGroup] = useState<GroupKey | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem('tracker-view') as ViewMode | null
@@ -120,6 +122,43 @@ export default function DashboardClient({ schools, initialApplications }: Props)
     if (res.ok) toast('Saved')
     else toast('Failed to save', 'error')
     refresh()
+  }
+
+  function handleDragStart(e: React.DragEvent, schoolId: string) {
+    setDraggingId(schoolId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleDragEnd() {
+    setDraggingId(null)
+    setDragOverGroup(null)
+  }
+
+  async function handleDropOnGroup(groupKey: GroupKey) {
+    if (!draggingId) return
+    const schoolId = draggingId
+    setDraggingId(null)
+    setDragOverGroup(null)
+
+    const school = schools.find(s => s.id === schoolId)
+    if (!school || isUC(school)) return
+
+    const currentGroup = getGroup(school, appBySchool[schoolId]?.application_type)
+    if (currentGroup === groupKey) return
+
+    const newType: ApplicationType | null = groupKey === 'not_set' ? null : groupKey as ApplicationType
+
+    setApplications(prev =>
+      prev.map(a => a.school_id === schoolId ? { ...a, application_type: newType } : a)
+    )
+
+    const res = await fetch('/api/applications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ school_id: schoolId, application_type: newType }),
+    })
+    if (res.ok) toast(`Moved to ${GROUP_META[groupKey].label}`)
+    else { toast('Failed to update round', 'error'); refresh() }
   }
 
   async function addSchool(schoolId: string) {
@@ -163,6 +202,12 @@ export default function DashboardClient({ schools, initialApplications }: Props)
   }, [filtered, appBySchool, sortBy])
 
   const activeGroups = GROUP_ORDER.filter(k => (grouped[k]?.length ?? 0) > 0)
+  const draggingSchool = draggingId ? schools.find(s => s.id === draggingId) : null
+  const isNonUCDrag = !!(draggingSchool && !isUC(draggingSchool))
+  // While dragging, show all non-UC groups as drop targets; UC only if it has schools
+  const sectionsToShow = isNonUCDrag
+    ? GROUP_ORDER.filter(k => k !== 'UC' || (grouped[k]?.length ?? 0) > 0)
+    : activeGroups
   const drawerApp = drawerSchool ? (appBySchool[drawerSchool.id] ?? null) : null
   const applied = applications.filter(a => a.status !== 'not_started').length
 
@@ -280,13 +325,39 @@ export default function DashboardClient({ schools, initialApplications }: Props)
       )}
 
       {/* Grouped sections */}
-      {activeGroups.length > 0 && (
+      {(activeGroups.length > 0 || isNonUCDrag) && (
         <div className="space-y-8">
-          {activeGroups.map(groupKey => {
-            const groupSchools = grouped[groupKey]!
+          {sectionsToShow.map(groupKey => {
+            const groupSchools = grouped[groupKey] ?? []
             const meta = GROUP_META[groupKey]
+            const isDropTarget = isNonUCDrag && groupKey !== 'UC'
+            const isOver = dragOverGroup === groupKey
             return (
-              <section key={groupKey}>
+              <section
+                key={groupKey}
+                onDragOver={e => {
+                  if (!isDropTarget) return
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  if (!isOver) setDragOverGroup(groupKey)
+                }}
+                onDragLeave={e => {
+                  const related = e.relatedTarget as Node | null
+                  if (!related || !e.currentTarget.contains(related)) {
+                    if (dragOverGroup === groupKey) setDragOverGroup(null)
+                  }
+                }}
+                onDrop={e => { e.preventDefault(); if (isDropTarget) handleDropOnGroup(groupKey) }}
+                style={{
+                  borderRadius: 16,
+                  padding: 8,
+                  margin: -8,
+                  background: isOver ? `${meta.color}0d` : 'transparent',
+                  outline: isOver ? `2px dashed ${meta.color}70` : '2px dashed transparent',
+                  outlineOffset: 0,
+                  transition: 'background 0.15s, outline-color 0.15s',
+                }}
+              >
                 {/* Section header */}
                 <div className="flex items-center gap-3 mb-4 pb-3"
                   style={{ borderBottom: `2px solid ${meta.color}60` }}>
@@ -296,26 +367,53 @@ export default function DashboardClient({ schools, initialApplications }: Props)
                       {meta.label}
                     </span>
                   </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full"
-                    style={{ background: meta.bg, color: meta.color }}>
-                    {groupSchools.length}
-                  </span>
+                  {groupSchools.length > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full"
+                      style={{ background: meta.bg, color: meta.color }}>
+                      {groupSchools.length}
+                    </span>
+                  )}
                 </div>
 
+                {/* Empty drop zone */}
+                {groupSchools.length === 0 && (
+                  <div className="rounded-2xl flex items-center justify-center"
+                    style={{ minHeight: 72, border: `2px dashed ${isOver ? meta.color + 'a0' : C.border}`, transition: 'border-color 0.15s' }}>
+                    <p className="text-sm" style={{ color: isOver ? meta.color : C.inkFaint }}>
+                      Drop here to move to {meta.label}
+                    </p>
+                  </div>
+                )}
+
                 {/* Card view */}
-                {view === 'icon' && (
+                {view === 'icon' && groupSchools.length > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {groupSchools.map(school => (
-                      <SchoolCard key={school.id} school={school}
-                        application={appBySchool[school.id] ?? null}
-                        onOpen={() => setDrawerSchool(school)}
-                        onUpdate={fields => updateApplication(school.id, fields)}/>
-                    ))}
+                    {groupSchools.map(school => {
+                      const canDrag = !isUC(school)
+                      return (
+                        <div
+                          key={school.id}
+                          draggable={canDrag}
+                          onDragStart={e => canDrag && handleDragStart(e, school.id)}
+                          onDragEnd={handleDragEnd}
+                          style={{
+                            opacity: draggingId === school.id ? 0.35 : 1,
+                            cursor: canDrag ? 'grab' : 'default',
+                            transition: 'opacity 0.15s',
+                          }}
+                        >
+                          <SchoolCard school={school}
+                            application={appBySchool[school.id] ?? null}
+                            onOpen={() => setDrawerSchool(school)}
+                            onUpdate={fields => updateApplication(school.id, fields)}/>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
 
                 {/* List view */}
-                {view === 'list' && (
+                {view === 'list' && groupSchools.length > 0 && (
                   <div className="rounded-2xl overflow-hidden"
                     style={{ background: C.card, border: `1px solid rgba(38,63,73,0.18)`, boxShadow: '0 2px 14px rgba(38,63,73,0.10)' }}>
                     <table className="w-full">
@@ -330,12 +428,21 @@ export default function DashboardClient({ schools, initialApplications }: Props)
                         </tr>
                       </thead>
                       <tbody>
-                        {groupSchools.map(school => (
-                          <SchoolRow key={school.id} school={school}
-                            application={appBySchool[school.id] ?? null}
-                            onOpen={() => setDrawerSchool(school)}
-                            onUpdate={fields => updateApplication(school.id, fields)}/>
-                        ))}
+                        {groupSchools.map(school => {
+                          const canDrag = !isUC(school)
+                          return (
+                            <SchoolRow key={school.id} school={school}
+                              application={appBySchool[school.id] ?? null}
+                              onOpen={() => setDrawerSchool(school)}
+                              onUpdate={fields => updateApplication(school.id, fields)}
+                              dragProps={canDrag ? {
+                                draggable: true,
+                                onDragStart: e => handleDragStart(e, school.id),
+                                onDragEnd: handleDragEnd,
+                                isDragging: draggingId === school.id,
+                              } : undefined}/>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
