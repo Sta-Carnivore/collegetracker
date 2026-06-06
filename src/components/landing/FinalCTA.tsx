@@ -21,7 +21,7 @@ export default function FinalCTA() {
           <p style={{ color: C.inkMuted, marginBottom: '2.5rem', fontSize: '1rem' }}>
             Free forever. Upgrade when you need AI features.
           </p>
-          <Link href="/login"
+          <Link href="/login?mode=signup"
             className="inline-flex items-center gap-2 px-8 py-4 rounded-[10px] text-sm font-semibold transition-all duration-200"
             style={{ background: C.teal, color: 'white' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#267970'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 24px ${C.teal}44` }}

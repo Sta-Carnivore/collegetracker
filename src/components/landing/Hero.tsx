@@ -56,7 +56,7 @@ export default function Hero() {
           </p>
 
           <div style={{ ...fade(340), display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <Link href="/login"
+            <Link href="/login?mode=signup"
               className="inline-flex items-center gap-2 px-6 py-3.5 rounded-[10px] text-sm font-semibold transition-all duration-200"
               style={{ background: C.teal, color: 'white' }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#267970'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 20px ${C.teal}44` }}

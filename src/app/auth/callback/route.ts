@@ -7,9 +7,6 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get('next') ?? '/tracker'
 
   if (code) {
-    // Build the redirect response first so Supabase can write session cookies
-    // directly onto it — otherwise the cookies are lost and the middleware
-    // sees the user as unauthenticated, causing an infinite redirect loop.
     const redirectResponse = NextResponse.redirect(`${origin}${next}`)
 
     const supabase = createServerClient(
@@ -31,6 +28,24 @@ export async function GET(request: NextRequest) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('user_id', user.id)
+          .single()
+
+        const destination = profile?.onboarding_completed ? next : '/onboarding'
+
+        if (destination !== next) {
+          const onboardingRedirect = NextResponse.redirect(`${origin}${destination}`)
+          redirectResponse.cookies.getAll().forEach(({ name, value }) => {
+            onboardingRedirect.cookies.set(name, value, { path: '/' })
+          })
+          return onboardingRedirect
+        }
+      }
       return redirectResponse
     }
   }

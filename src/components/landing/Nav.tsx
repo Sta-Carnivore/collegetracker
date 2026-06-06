@@ -38,7 +38,7 @@ export default function Nav() {
           onMouseLeave={e => (e.currentTarget.style.color = C.inkMuted)}>
           Sign in
         </Link>
-        <Link href="/login"
+        <Link href="/login?mode=signup"
           className="text-sm font-semibold px-4 py-2.5 rounded-[10px] transition-all duration-200"
           style={{ background: C.ink, color: C.bgSoft }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = C.inkStrong; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)' }}

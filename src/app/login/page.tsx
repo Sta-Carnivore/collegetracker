@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
@@ -131,9 +132,10 @@ function RouteIllustration() {
 
 /* ── Login / Signup form ─────────────────────────────────────── */
 export default function LoginPage() {
+  const searchParams = useSearchParams()
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [isSignUp, setIsSignUp] = useState(searchParams.get('mode') === 'signup')
   const [loading,  setLoading]  = useState(false)
   const [message,  setMessage]  = useState('')
   const [isError,  setIsError]  = useState(false)
