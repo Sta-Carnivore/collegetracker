@@ -97,24 +97,6 @@ export interface Application {
   updated_at: string
 }
 
-export interface Essay {
-  id: string
-  user_id: string
-  application_id: string | null
-  title: string
-  content: string
-  ai_feedback: EssayFeedback | null
-  version_history: { content: string; saved_at: string }[]
-  created_at: string
-  updated_at: string
-}
-
-export interface EssayFeedback {
-  direction: 'tone' | 'structure' | 'conciseness'
-  revised_content: string
-  changes_summary: string
-}
-
 export interface BioSite {
   id: string
   user_id: string
