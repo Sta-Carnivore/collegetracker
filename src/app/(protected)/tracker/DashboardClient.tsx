@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { School, Application, ApplicationStatus, ApplicationType } from '@/types/database'
 import SchoolCard from '@/components/dashboard/SchoolCard'
 import SchoolRow from '@/components/dashboard/SchoolRow'
@@ -98,14 +98,50 @@ export default function DashboardClient({ schools, initialApplications }: Props)
   const [sortBy, setSortBy]           = useState<'name' | 'deadline'>('deadline')
   const [drawerSchool, setDrawerSchool] = useState<School | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [draggingId, setDraggingId]     = useState<string | null>(null)
+  const [draggingId, setDraggingId]       = useState<string | null>(null)
   const [dragOverGroup, setDragOverGroup] = useState<GroupKey | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem('tracker-view') as ViewMode | null
     if (saved) setView(saved)
   }, [])
   useEffect(() => { localStorage.setItem('tracker-view', view) }, [view])
+
+  // Auto-scroll upward when dragging near the top of the scroll container
+  useEffect(() => {
+    if (!draggingId) return
+    let lastY = 0
+    let frame: number
+    const onDragOver = (e: DragEvent) => { lastY = e.clientY }
+
+    // Find the scrollable ancestor
+    const scrollEl = (() => {
+      let el: HTMLElement | null = containerRef.current
+      while (el && el !== document.body) {
+        const { overflowY } = window.getComputedStyle(el)
+        if (overflowY === 'auto' || overflowY === 'scroll') return el
+        el = el.parentElement
+      }
+      return document.documentElement
+    })()
+
+    const tick = () => {
+      const ZONE = 160
+      if (lastY < ZONE && lastY > 0) {
+        const speed = Math.ceil(14 * (1 - lastY / ZONE))
+        scrollEl.scrollTop -= speed
+      }
+      frame = requestAnimationFrame(tick)
+    }
+
+    document.addEventListener('dragover', onDragOver)
+    frame = requestAnimationFrame(tick)
+    return () => {
+      document.removeEventListener('dragover', onDragOver)
+      cancelAnimationFrame(frame)
+    }
+  }, [draggingId])
 
   const refresh = useCallback(async () => {
     const res = await fetch('/api/applications')
@@ -212,7 +248,7 @@ export default function DashboardClient({ schools, initialApplications }: Props)
   const applied = applications.filter(a => a.status !== 'not_started').length
 
   return (
-    <div style={{ color: C.ink }}>
+    <div ref={containerRef} style={{ color: C.ink }}>
 
       {/* Title row */}
       <div className="flex items-start sm:items-center justify-between mb-6 gap-3 flex-wrap">
