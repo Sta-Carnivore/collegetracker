@@ -8,11 +8,19 @@ import { getNotificationDate } from '@/lib/rounds'
 import { daysUntil, deadlineUrgency, formatDays } from '@/lib/deadline'
 import { C } from '@/lib/atlas'
 
+interface DragProps {
+  draggable: boolean
+  onDragStart: (e: React.DragEvent) => void
+  onDragEnd: () => void
+  isDragging: boolean
+}
+
 interface Props {
   school: School
   application: Application | null
   onOpen: () => void
   onUpdate: (fields: Partial<{ status: ApplicationStatus; supplemental_essays_done: number }>) => void
+  dragProps?: DragProps
 }
 
 const allStatuses = Object.keys(statusConfig) as ApplicationStatus[]
@@ -31,7 +39,7 @@ function getDeadline(school: School, appType: string | null | undefined): string
   return fmtDate(school.deadline_ea ?? school.deadline_ed ?? school.deadline_rd) ?? '—'
 }
 
-export default function SchoolCard({ school, application, onOpen, onUpdate }: Props) {
+export default function SchoolCard({ school, application, onOpen, onUpdate, dragProps }: Props) {
   const [status, setStatus] = useState<ApplicationStatus>(application?.status ?? 'not_started')
   const [essaysDone, setEssaysDone] = useState(application?.supplemental_essays_done ?? 0)
 
@@ -63,9 +71,19 @@ export default function SchoolCard({ school, application, onOpen, onUpdate }: Pr
 
   return (
     <div
-      className="flex flex-col gap-3 rounded-2xl p-5 transition-all duration-200 cursor-default"
-      style={{ background: C.card, border: `1px solid rgba(38,63,73,0.18)`, boxShadow: '0 2px 12px rgba(38,63,73,0.10)' }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 24px rgba(38,63,73,0.15)'; (e.currentTarget as HTMLElement).style.borderColor = `rgba(38,63,73,0.28)` }}
+      className="flex flex-col gap-3 rounded-2xl p-5 transition-all duration-200"
+      draggable={dragProps?.draggable ?? false}
+      onDragStart={dragProps?.onDragStart}
+      onDragEnd={dragProps?.onDragEnd}
+      style={{
+        background: C.card,
+        border: `1px solid rgba(38,63,73,0.18)`,
+        boxShadow: '0 2px 12px rgba(38,63,73,0.10)',
+        opacity: dragProps?.isDragging ? 0.35 : 1,
+        cursor: dragProps?.draggable ? 'grab' : 'default',
+        transition: 'opacity 0.15s, box-shadow 0.2s, border-color 0.2s',
+      }}
+      onMouseEnter={e => { if (!dragProps?.isDragging) { (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 24px rgba(38,63,73,0.15)'; (e.currentTarget as HTMLElement).style.borderColor = `rgba(38,63,73,0.28)` } }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 12px rgba(38,63,73,0.10)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(38,63,73,0.18)' }}
     >
       {/* Header */}

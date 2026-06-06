@@ -391,22 +391,16 @@ export default function DashboardClient({ schools, initialApplications }: Props)
                     {groupSchools.map(school => {
                       const canDrag = !isUC(school)
                       return (
-                        <div
-                          key={school.id}
-                          draggable={canDrag}
-                          onDragStart={e => canDrag && handleDragStart(e, school.id)}
-                          onDragEnd={handleDragEnd}
-                          style={{
-                            opacity: draggingId === school.id ? 0.35 : 1,
-                            cursor: canDrag ? 'grab' : 'default',
-                            transition: 'opacity 0.15s',
-                          }}
-                        >
-                          <SchoolCard school={school}
-                            application={appBySchool[school.id] ?? null}
-                            onOpen={() => setDrawerSchool(school)}
-                            onUpdate={fields => updateApplication(school.id, fields)}/>
-                        </div>
+                        <SchoolCard key={school.id} school={school}
+                          application={appBySchool[school.id] ?? null}
+                          onOpen={() => setDrawerSchool(school)}
+                          onUpdate={fields => updateApplication(school.id, fields)}
+                          dragProps={canDrag ? {
+                            draggable: true,
+                            onDragStart: e => handleDragStart(e, school.id),
+                            onDragEnd: handleDragEnd,
+                            isDragging: draggingId === school.id,
+                          } : undefined}/>
                       )
                     })}
                   </div>
