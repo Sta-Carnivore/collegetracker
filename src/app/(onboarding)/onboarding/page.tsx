@@ -15,7 +15,7 @@ export default async function OnboardingPage() {
     .eq('user_id', user.id)
     .single()
 
-  if (profile?.onboarding_completed !== false) redirect('/tracker')
+  if (profile?.onboarding_completed === true) redirect('/dashboard')
 
   return (
     <OnboardingClient

@@ -105,7 +105,7 @@ export default function OnboardingClient({
       body: JSON.stringify({ complete: true }),
     })
     setSaving(false)
-    router.push('/tracker')
+    router.push('/dashboard')
   }
 
   async function handleSkip() {
