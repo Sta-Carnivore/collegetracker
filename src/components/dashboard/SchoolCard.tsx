@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ExternalLink } from 'lucide-react'
-import { School, Application, ApplicationStatus } from '@/types/database'
+import { School, Application, ApplicationStatus, ApplicationType } from '@/types/database'
 import { statusConfig } from './StatusBadge'
 import { getNotificationDate } from '@/lib/rounds'
 import { daysUntil, deadlineUrgency, formatDays } from '@/lib/deadline'
@@ -19,7 +19,7 @@ interface Props {
   school: School
   application: Application | null
   onOpen: () => void
-  onUpdate: (fields: Partial<{ status: ApplicationStatus; supplemental_essays_done: number }>) => void
+  onUpdate: (fields: Partial<{ status: ApplicationStatus; supplemental_essays_done: number; application_type: ApplicationType | null }>) => void
   dragProps?: DragProps
 }
 
@@ -39,9 +39,19 @@ function getDeadline(school: School, appType: string | null | undefined): string
   return fmtDate(school.deadline_ea ?? school.deadline_ed ?? school.deadline_rd) ?? '—'
 }
 
+const ROUND_OPTIONS: { value: ApplicationType | ''; label: string }[] = [
+  { value: '',        label: 'No round' },
+  { value: 'EA',     label: 'EA' },
+  { value: 'REA',    label: 'REA' },
+  { value: 'ED',     label: 'ED' },
+  { value: 'RD',     label: 'RD' },
+  { value: 'Rolling', label: 'Rolling' },
+]
+
 export default function SchoolCard({ school, application, onOpen, onUpdate, dragProps }: Props) {
   const [status, setStatus] = useState<ApplicationStatus>(application?.status ?? 'not_started')
   const [essaysDone, setEssaysDone] = useState(application?.supplemental_essays_done ?? 0)
+  const [appType, setAppType] = useState<ApplicationType | null>(application?.application_type ?? null)
 
   const essaysTotal = school.supplemental_essay_count
   const essayPct = essaysTotal > 0 ? Math.round((essaysDone / essaysTotal) * 100) : 0
@@ -60,6 +70,12 @@ export default function SchoolCard({ school, application, onOpen, onUpdate, drag
   function handleStatusChange(newStatus: ApplicationStatus) {
     setStatus(newStatus)
     onUpdate({ status: newStatus })
+  }
+
+  function handleRoundChange(val: string) {
+    const newType = val === '' ? null : val as ApplicationType
+    setAppType(newType)
+    onUpdate({ application_type: newType })
   }
 
   function handleEssayDelta(delta: number) {
@@ -108,6 +124,20 @@ export default function SchoolCard({ school, application, onOpen, onUpdate, drag
           ))}
         </select>
       </div>
+
+      {/* Round selector — hidden for UC schools */}
+      {!school.name.startsWith('University of California-') && (
+        <select
+          value={appType ?? ''}
+          onChange={e => handleRoundChange(e.target.value)}
+          className="text-xs font-medium px-2 py-1 rounded-lg cursor-pointer focus:outline-none w-full"
+          style={{ background: C.bgSoft, color: appType ? C.ink : C.inkFaint, border: `1px solid ${C.border}` }}
+        >
+          {ROUND_OPTIONS.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      )}
 
       {/* Meta */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs" style={{ color: C.inkFaint }}>
