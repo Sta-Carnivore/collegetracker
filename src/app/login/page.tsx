@@ -152,11 +152,12 @@ function LoginPageInner() {
     setIsError(false)
 
     if (isSignUp) {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email, password,
         options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
       })
       if (error) { setMessage(error.message); setIsError(true) }
+      else if (data.session) { window.location.href = '/dashboard' }
       else setMessage('Check your email for a confirmation link.')
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
