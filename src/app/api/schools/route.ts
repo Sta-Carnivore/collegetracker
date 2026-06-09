@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
     .order('name')
     .limit(20)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('[schools search]', error.message)
+    return NextResponse.json({ error: 'Search failed.' }, { status: 500 })
+  }
   return NextResponse.json(data)
 }

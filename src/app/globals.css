@@ -175,6 +175,150 @@
   50%       { opacity: 0.45; }
 }
 
+/* ── Bio style previews — living mini-compositions ── */
+@keyframes bio-draw {
+  0%        { stroke-dashoffset: 100; }
+  45%       { stroke-dashoffset: 0; }
+  88%       { stroke-dashoffset: 0; }
+  100%      { stroke-dashoffset: 100; }
+}
+@keyframes bio-pop {
+  0%, 16%   { opacity: 0; transform: scale(0); }
+  30%       { opacity: 1; transform: scale(1.35); }
+  42%, 86%  { opacity: 1; transform: scale(1); }
+  100%      { opacity: 0; transform: scale(0); }
+}
+@keyframes bio-rise {
+  0%, 12%   { opacity: 0; transform: translateY(9px); }
+  40%, 100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes bio-mark {
+  0%, 14%   { background-size: 0% 80%; }
+  60%, 100% { background-size: 100% 80%; }
+}
+@keyframes bio-note-in {
+  0%, 34%   { opacity: 0; transform: translateX(7px); }
+  62%, 100% { opacity: 0.92; transform: translateX(0); }
+}
+@keyframes bio-settle {
+  0%        { opacity: 0; transform: translateY(10px) rotate(0deg); }
+  100%      { opacity: 1; transform: translateY(0) rotate(var(--bio-rot, 0deg)); }
+}
+@keyframes bio-float {
+  0%, 100%  { transform: translateY(0) rotate(var(--bio-rot, 0deg)); }
+  50%       { transform: translateY(-3px) rotate(var(--bio-rot, 0deg)); }
+}
+@keyframes bio-blink {
+  0%, 45%   { opacity: 1; }
+  55%, 100% { opacity: 0.25; }
+}
+
+.bio-demo { transition: transform .4s cubic-bezier(.2,.7,.2,1); will-change: transform; }
+.bio-pick:hover .bio-demo { transform: translateY(-3px) scale(1.012); }
+.bio-pf-curve  { stroke-dasharray: 100; animation: bio-draw 7s ease-in-out infinite; }
+.bio-pf-dot    { transform-box: fill-box; transform-origin: center; animation: bio-pop 7s ease-in-out infinite; }
+.bio-rise      { animation: bio-rise 7s ease-in-out infinite; }
+.bio-fn-mark   {
+  background-image: linear-gradient(transparent 0, var(--bio-hl, #C8A45A55) 0);
+  background-repeat: no-repeat; background-position: 0 88%; background-size: 0% 80%;
+  animation: bio-mark 7s ease-in-out infinite; padding: 0 2px;
+}
+.bio-fn-note   { animation: bio-note-in 7s ease-in-out infinite; }
+.bio-ew-card   { animation: bio-settle .9s cubic-bezier(.2,.8,.2,1) backwards; }
+.bio-pick:hover .bio-ew-card { animation: bio-float 3.4s ease-in-out infinite; }
+.bio-ew-curator { animation: bio-blink 7s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .bio-pf-curve, .bio-pf-dot, .bio-rise, .bio-fn-mark, .bio-fn-note,
+  .bio-ew-card, .bio-ew-curator { animation: none; }
+  .bio-fn-mark { background-size: 100% 80%; }
+}
+
+/* ── Immersive generation / refinement loading overlay ── */
+@keyframes bio-ov-trace {
+  0%       { stroke-dashoffset: 100; }
+  55%      { stroke-dashoffset: 0; }
+  82%      { stroke-dashoffset: 0; }
+  100%     { stroke-dashoffset: 100; }
+}
+@keyframes bio-ov-pop {
+  0%, 20%  { opacity: 0; transform: scale(0); }
+  34%      { opacity: 1; transform: scale(1.3); }
+  46%, 82% { opacity: 1; transform: scale(1); }
+  100%     { opacity: 0; transform: scale(0); }
+}
+@keyframes bio-ov-drift {
+  0%, 100% { transform: translateY(0) rotate(var(--bio-rot, 0deg)); }
+  50%      { transform: translateY(-5px) rotate(var(--bio-rot, 0deg)); }
+}
+@keyframes bio-ov-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.bio-ov-root {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.bio-ov-scrim {
+  position: absolute; inset: 0;
+  background: rgba(238, 231, 217, 0.55);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.bio-ov-card {
+  position: relative;
+  width: 100%; max-width: 420px;
+  background: #FFFAF0;
+  border: 1px solid rgba(38,63,73,0.16);
+  border-radius: 20px;
+  padding: 26px 26px 22px;
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(38,63,73,0.22);
+  animation: bio-ov-in .4s cubic-bezier(.2,.7,.2,1) both;
+}
+.bio-ov-stage {
+  position: relative;
+  width: 100%; max-width: 280px; height: 120px; margin: 0 auto;
+}
+.bio-ov-trace { stroke-dasharray: 100; animation: bio-ov-trace 3.6s ease-in-out infinite; }
+.bio-ov-dot   { transform-box: fill-box; transform-origin: center; animation: bio-ov-pop 3.6s ease-in-out infinite; }
+.bio-ov-chip {
+  position: absolute;
+  font-family: var(--font-sans, sans-serif); font-size: 9px; letter-spacing: 0.06em;
+  color: #3E5A63; background: #F7F2E8;
+  border: 1px solid rgba(38,63,73,0.16); border-radius: 5px;
+  padding: 3px 6px; box-shadow: 0 3px 10px rgba(38,63,73,0.10);
+}
+.bio-ov-chip-a { left: 2px;  top: 6px;   --bio-rot: -5deg; animation: bio-ov-drift 3.8s ease-in-out infinite; }
+.bio-ov-chip-b { right: 0;   top: 30px;  --bio-rot: 4deg;  animation: bio-ov-drift 4.4s ease-in-out infinite .5s; }
+.bio-ov-chip-c { right: 10px; bottom: 2px; color: #C8A45A; animation: bio-ov-drift 4.1s ease-in-out infinite .9s; }
+
+.bio-ov-steps {
+  margin-top: 18px; display: flex; flex-direction: column; gap: 8px;
+  text-align: left; max-width: 260px; margin-left: auto; margin-right: auto;
+}
+.bio-ov-step {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 13px; color: #56737A;
+  transition: color .3s ease, opacity .3s ease;
+}
+.bio-ov-step[data-state="todo"]   { opacity: 0.5; }
+.bio-ov-step[data-state="active"] { color: #1D2E36; font-weight: 600; }
+.bio-ov-step[data-state="done"]   { color: #3F8562; }
+.bio-ov-bullet {
+  width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  background: #F1ECE0; border: 1px solid rgba(38,63,73,0.18); color: #3E5A63;
+}
+.bio-ov-step[data-state="active"] .bio-ov-bullet { background: #D7ECE6; border-color: #328F8655; color: #328F86; }
+.bio-ov-step[data-state="done"]   .bio-ov-bullet { background: #D1EBE0; border-color: #3F856255; color: #3F8562; }
+.bio-ov-pip { width: 5px; height: 5px; border-radius: 50%; background: #56737A; opacity: 0.6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bio-ov-trace, .bio-ov-dot, .bio-ov-chip-a, .bio-ov-chip-b, .bio-ov-chip-c,
+  .bio-ov-card { animation: none; }
+  .bio-ov-trace { stroke-dashoffset: 0; }
+}
+
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(8px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0) scale(1); }

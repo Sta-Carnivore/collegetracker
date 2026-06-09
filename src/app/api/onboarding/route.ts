@@ -22,6 +22,9 @@ export async function PATCH(request: NextRequest) {
     .from('profiles')
     .upsert({ user_id: user.id, ...updates }, { onConflict: 'user_id' })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('[onboarding]', error.message)
+    return NextResponse.json({ error: 'Could not save your profile.' }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }

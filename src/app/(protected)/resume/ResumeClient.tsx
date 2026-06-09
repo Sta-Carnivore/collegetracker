@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { ParsedResume } from '@/types/database'
-import { Upload, RefreshCw, Loader2, Lock } from 'lucide-react'
+import { Upload, RefreshCw, Loader2, Lock, Copy, Check, AlertCircle, TrendingUp, LayoutTemplate, Target, X } from 'lucide-react'
 import { C } from '@/lib/atlas'
 import { useToast } from '@/components/ui/Toast'
 
@@ -12,22 +12,66 @@ interface Props {
   isPro: boolean
 }
 
-const sectionStyle = {
-  background: C.card,
-  border: `1px solid ${C.border}`,
-  borderRadius: 16,
-  padding: '20px 24px',
-  boxShadow: '0 2px 10px rgba(38,63,73,0.07)',
+function renderInline(text: string): React.ReactNode {
+  // Split on **bold** patterns first, then *italic*
+  const boldParts = text.split(/(\*\*[^*]+\*\*)/g)
+  if (boldParts.length === 1) return text
+  return (
+    <>
+      {boldParts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          return <strong key={i} style={{ fontWeight: 600, color: C.inkStrong }}>{part.slice(2, -2)}</strong>
+        }
+        return part || null
+      })}
+    </>
+  )
 }
 
-const sectionLabelStyle = {
-  fontSize: 11,
-  fontWeight: 600 as const,
-  textTransform: 'uppercase' as const,
-  letterSpacing: '0.06em',
-  color: C.inkFaint,
-  marginBottom: 16,
-  fontFamily: 'var(--font-sans)',
+function renderMarkdown(md: string) {
+  const lines = md.split('\n')
+  const elements: React.ReactNode[] = []
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+    if (line.startsWith('# ')) {
+      elements.push(
+        <p key={i} style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 700, color: C.inkStrong, marginBottom: 2, lineHeight: 1.25 }}>
+          {renderInline(line.slice(2))}
+        </p>
+      )
+    } else if (line.startsWith('## ')) {
+      elements.push(
+        <div key={i} style={{ marginTop: 22, marginBottom: 8 }}>
+          <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em', color: C.teal, fontFamily: 'var(--font-sans)' }}>
+            {line.slice(3)}
+          </p>
+          <div style={{ height: 1, background: `${C.teal}50`, marginTop: 5 }}/>
+        </div>
+      )
+    } else if (line.startsWith('### ')) {
+      elements.push(
+        <p key={i} style={{ fontSize: 13, fontWeight: 600, color: C.inkStrong, marginTop: 10, marginBottom: 2 }}>
+          {renderInline(line.slice(4))}
+        </p>
+      )
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      elements.push(
+        <div key={i} className="flex gap-2" style={{ marginTop: 4 }}>
+          <span style={{ color: C.inkFaint, flexShrink: 0, marginTop: 2, fontSize: 11 }}>·</span>
+          <p style={{ fontSize: 12.5, color: C.inkMuted, lineHeight: 1.6 }}>{renderInline(line.slice(2))}</p>
+        </div>
+      )
+    } else if (line.trim() === '') {
+      elements.push(<div key={i} style={{ height: 6 }}/>)
+    } else {
+      elements.push(
+        <p key={i} style={{ fontSize: 12.5, color: C.inkMuted, lineHeight: 1.6 }}>{renderInline(line)}</p>
+      )
+    }
+    i++
+  }
+  return elements
 }
 
 export default function ResumeClient({ initialParsed, callsUsed, isPro }: Props) {
@@ -35,9 +79,14 @@ export default function ResumeClient({ initialParsed, callsUsed, isPro }: Props)
   const [parsed, setParsed] = useState<ParsedResume | null>(initialParsed)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+  // Track locally so the count updates immediately after an upload (the server
+  // increments the counter after the response, so the page prop is one behind).
+  const [used, setUsed] = useState(callsUsed)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const limitReached = !isPro && callsUsed >= 10
+  const monthlyLimit = isPro ? 20 : 3
+  const limitReached = used >= monthlyLimit
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -46,33 +95,67 @@ export default function ResumeClient({ initialParsed, callsUsed, isPro }: Props)
     setError('')
     const formData = new FormData()
     formData.append('file', file)
-    const res = await fetch('/api/resume', { method: 'POST', body: formData })
-    const data = await res.json()
-    if (!res.ok) {
-      setError(data.error ?? 'Something went wrong.')
-      toast(data.error ?? 'Something went wrong.', 'error')
-    } else {
-      setParsed(data.parsed)
-      toast('Resume parsed successfully')
+    try {
+      const res = await fetch('/api/resume', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'Something went wrong.')
+        toast(data.error ?? 'Something went wrong.', 'error')
+      } else {
+        setParsed(data.parsed)
+        setUsed(u => u + 1)
+        toast('Analysis complete')
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setError('Server error: ' + msg)
+      toast('Server error', 'error')
     }
     setLoading(false)
+    // Reset input so same file can be re-uploaded
+    e.target.value = ''
   }
+
+  function toPlainText(md: string): string {
+    return md
+      .split('\n')
+      .map(line => {
+        if (line.startsWith('### ')) return line.slice(4)
+        if (line.startsWith('## ')) return line.slice(3).toUpperCase()
+        if (line.startsWith('# ')) return line.slice(2)
+        if (line.startsWith('- ') || line.startsWith('* ')) return '  ' + line.slice(2)
+        return line
+      })
+      .join('\n')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+  }
+
+  async function handleCopy() {
+    if (!parsed?.reformatted) return
+    await navigator.clipboard.writeText(toPlainText(parsed.reformatted))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const gaps = parsed?.gaps ?? []
+  const reformatted = parsed?.reformatted ?? ''
 
   return (
     <div style={{ color: C.ink }}>
-      {/* Title row */}
+      {/* Header */}
       <div className="flex items-start sm:items-center justify-between mb-6 gap-3 flex-wrap">
         <div>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(1.4rem,2vw,1.8rem)', color: C.inkStrong, fontWeight: 600, lineHeight: 1.2 }}>
-            AI Resume
+            Resume Analysis
           </h1>
           <p className="text-sm mt-0.5" style={{ color: C.inkMuted }}>
-            Upload your resume — AI extracts and displays your profile.
+            Upload your resume — get a gap analysis and a clean reformat.
           </p>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs" style={{ color: C.inkFaint }}>
-            {isPro ? 'Pro · unlimited' : `${callsUsed}/10 this month`}
+            {`${used}/${monthlyLimit} this month`}{isPro ? ' · Pro' : ''}
           </span>
           <button
             onClick={() => !limitReached && fileRef.current?.click()}
@@ -82,9 +165,9 @@ export default function ResumeClient({ initialParsed, callsUsed, isPro }: Props)
             onMouseEnter={e => { if (!loading && !limitReached) (e.currentTarget as HTMLElement).style.background = '#267970' }}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = C.teal}>
             {loading ? <Loader2 size={14} className="animate-spin"/> : parsed ? <RefreshCw size={14}/> : <Upload size={14}/>}
-            {loading ? 'Parsing…' : parsed ? 'Re-upload' : 'Upload PDF'}
+            {loading ? 'Analyzing…' : parsed ? 'Re-upload' : 'Upload Resume'}
           </button>
-          <input ref={fileRef} type="file" accept=".pdf" className="hidden" onChange={handleUpload}/>
+          <input ref={fileRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleUpload}/>
         </div>
       </div>
 
@@ -93,7 +176,9 @@ export default function ResumeClient({ initialParsed, callsUsed, isPro }: Props)
         <div className="flex items-center gap-3 rounded-xl px-4 py-3 mb-5 text-sm"
           style={{ background: C.paleGold, border: `1px solid ${C.gold}40`, color: '#7A5C1E' }}>
           <Lock size={14}/>
-          You&apos;ve reached the 10/month free limit. Upgrade to Pro for unlimited AI resume parsing.
+          {isPro
+            ? `You've used all ${monthlyLimit} resume analyses this month. Your limit resets next month.`
+            : `You've reached the ${monthlyLimit}/month free limit. Upgrade to Pro for 20/month.`}
         </div>
       )}
 
@@ -105,21 +190,85 @@ export default function ResumeClient({ initialParsed, callsUsed, isPro }: Props)
         </div>
       )}
 
-      {/* Empty / Upload area */}
+      {/* Empty state */}
       {!parsed && !loading && (
-        <div
-          onClick={() => !limitReached && fileRef.current?.click()}
-          className="rounded-2xl p-16 text-center transition-all"
-          style={{
-            border: `2px dashed ${C.border}`,
-            background: C.card,
-            cursor: limitReached ? 'default' : 'pointer',
-          }}
-          onMouseEnter={e => { if (!limitReached) (e.currentTarget as HTMLElement).style.borderColor = `rgba(38,63,73,0.28)` }}
-          onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = C.border}>
-          <Upload size={28} style={{ color: C.inkFaint, margin: '0 auto 12px' }}/>
-          <p style={{ color: C.inkMuted, fontWeight: 500 }}>Drop your PDF resume here or click to upload</p>
-          <p className="text-xs mt-1.5" style={{ color: C.inkFaint }}>PDF only · Max 5MB</p>
+        <div className="space-y-5">
+          {/* Feature highlights */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              {
+                icon: TrendingUp,
+                color: C.danger,
+                pale: '#F5DDD9',
+                title: 'Gap Analysis',
+                desc: 'Ranked list of what your profile is missing — calibrated to your academic level and target schools.',
+              },
+              {
+                icon: Target,
+                color: C.teal,
+                pale: C.paleTeal,
+                title: 'Priority Order',
+                desc: 'Scores first, then leadership, then competitions. Concrete next steps, not vague suggestions.',
+              },
+              {
+                icon: LayoutTemplate,
+                color: C.plum,
+                pale: C.palePlum,
+                title: 'Clean Reformat',
+                desc: 'Your existing resume restructured into a professional layout. Copy as plain text instantly.',
+              },
+            ].map(({ icon: Icon, color, pale, title, desc }) => (
+              <div key={title} className="rounded-2xl p-5"
+                style={{ background: C.card, border: `1px solid ${C.border}`, boxShadow: '0 1px 8px rgba(38,63,73,0.06)' }}>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-3"
+                  style={{ background: pale, border: `1px solid ${color}25` }}>
+                  <Icon size={15} style={{ color }}/>
+                </div>
+                <p className="text-sm font-semibold mb-1" style={{ color: C.inkStrong }}>{title}</p>
+                <p className="text-xs leading-relaxed" style={{ color: C.inkMuted }}>{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Example gap preview */}
+          <div className="rounded-2xl p-5"
+            style={{ background: C.card, border: `1px solid ${C.border}`, boxShadow: '0 1px 8px rgba(38,63,73,0.06)' }}>
+            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.inkFaint, marginBottom: 12, fontFamily: 'var(--font-sans)' }}>
+              Example Output
+            </p>
+            <div className="space-y-2.5">
+              {[
+                { n: '01', what: 'SAT Score Gap', how: 'Current 1240 is below UT Austin CS 25th (1310). Retake in Oct — Khan Academy adaptive 20 min/day for 6 weeks targets +80 points.' },
+                { n: '02', what: 'Robotics Leadership', how: 'Transition from member to team captain or sub-team lead. Propose to your coach before September; most FTC teams restructure roles at season start.' },
+                { n: '03', what: 'CS Competition', how: 'Register for USACO Bronze by Dec — free, self-paced, and directly signals CS aptitude. Start with USACO Guide\'s Bronze section.' },
+              ].map(({ n, what, how }) => (
+                <div key={n} className="flex items-start gap-3 rounded-xl px-4 py-3"
+                  style={{ background: C.bgSoft, border: `1px solid ${C.border}` }}>
+                  <span className="text-xs font-bold tabular-nums flex-shrink-0 mt-0.5" style={{ color: C.inkFaint }}>{n}</span>
+                  <div>
+                    <p className="text-xs font-semibold mb-0.5" style={{ color: C.inkStrong }}>{what}</p>
+                    <p className="text-xs leading-relaxed" style={{ color: C.inkMuted }}>{how}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Upload drop zone */}
+          <div
+            onClick={() => !limitReached && fileRef.current?.click()}
+            className="rounded-2xl p-10 text-center transition-all"
+            style={{
+              border: `2px dashed ${C.border}`,
+              background: C.bgSoft,
+              cursor: limitReached ? 'default' : 'pointer',
+            }}
+            onMouseEnter={e => { if (!limitReached) { (e.currentTarget as HTMLElement).style.borderColor = C.teal + '80'; (e.currentTarget as HTMLElement).style.background = C.paleTeal + '60' } }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.background = C.bgSoft }}>
+            <Upload size={22} style={{ color: C.teal, margin: '0 auto 10px' }}/>
+            <p className="text-sm font-semibold" style={{ color: C.inkStrong }}>Upload your resume to get started</p>
+            <p className="text-xs mt-1" style={{ color: C.inkFaint }}>PDF or Word (.docx) · Max 5MB</p>
+          </div>
         </div>
       )}
 
@@ -128,91 +277,73 @@ export default function ResumeClient({ initialParsed, callsUsed, isPro }: Props)
         <div className="rounded-2xl p-16 text-center"
           style={{ background: C.card, border: `1px solid ${C.border}` }}>
           <Loader2 size={28} className="animate-spin mx-auto mb-3" style={{ color: C.teal }}/>
-          <p style={{ color: C.inkMuted, fontWeight: 500 }}>AI is parsing your resume…</p>
-          <p className="text-xs mt-1" style={{ color: C.inkFaint }}>This may take a few seconds</p>
+          <p style={{ color: C.inkMuted, fontWeight: 500 }}>Analyzing your resume…</p>
+          <p className="text-xs mt-1" style={{ color: C.inkFaint }}>This may take 15–30 seconds</p>
         </div>
       )}
 
       {/* Results */}
       {parsed && !loading && (
-        <div className="space-y-4">
-          {parsed.education?.length > 0 && (
-            <Section title="Education">
-              {parsed.education.map((e, i) => (
-                <div key={i} className="flex justify-between items-baseline text-sm">
-                  <span style={{ color: C.inkStrong, fontFamily: 'var(--font-serif)', fontWeight: 600 }}>{e.school}</span>
-                  <span style={{ color: C.inkMuted, fontSize: 12 }}>{e.gpa ? `GPA ${e.gpa}` : ''} {e.graduation ?? ''}</span>
-                </div>
-              ))}
-            </Section>
-          )}
+        <div className="space-y-6">
 
-          {parsed.activities?.length > 0 && (
-            <Section title="Activities">
-              {parsed.activities.map((a, i) => (
-                <div key={i} className="text-sm pb-3 last:pb-0"
-                  style={{ borderBottom: i < parsed.activities.length - 1 ? `1px solid ${C.border}` : 'none' }}>
-                  <div className="flex justify-between items-baseline">
-                    <span style={{ color: C.inkStrong, fontWeight: 600 }}>{a.name}</span>
-                    <span style={{ color: C.inkFaint, fontSize: 11 }}>{a.years}</span>
+          {/* Gap Analysis */}
+          {gaps.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <AlertCircle size={14} style={{ color: C.danger }}/>
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.danger, fontFamily: 'var(--font-sans)' }}>
+                  What&apos;s Missing
+                </span>
+              </div>
+              <div className="space-y-2">
+                {gaps.map((gap, i) => (
+                  <div key={i} className="rounded-xl px-4 py-3.5"
+                    style={{ background: C.card, border: `1px solid ${C.border}`, boxShadow: '0 1px 6px rgba(38,63,73,0.06)' }}>
+                    <div className="flex items-start gap-3">
+                      <span className="flex-shrink-0 text-xs font-bold tabular-nums mt-0.5"
+                        style={{ color: C.inkFaint }}>{String(i + 1).padStart(2, '0')}</span>
+                      <div>
+                        <p className="text-sm font-semibold mb-1" style={{ color: C.inkStrong }}>{gap.what}</p>
+                        <p className="text-sm" style={{ color: C.inkMuted, lineHeight: 1.6 }}>{gap.how}</p>
+                      </div>
+                    </div>
                   </div>
-                  <p style={{ color: C.inkMuted, fontSize: 12, marginTop: 2 }}>{a.role}</p>
-                  <p style={{ color: C.inkFaint, fontSize: 12, marginTop: 3 }}>{a.description}</p>
-                </div>
-              ))}
-            </Section>
-          )}
-
-          {parsed.awards?.length > 0 && (
-            <Section title="Awards & Honors">
-              {parsed.awards.map((a, i) => (
-                <div key={i} className="flex justify-between items-baseline text-sm">
-                  <span style={{ color: C.inkStrong }}>{a.name}</span>
-                  <span style={{ color: C.inkFaint, fontSize: 11 }}>{a.level} · {a.year}</span>
-                </div>
-              ))}
-            </Section>
-          )}
-
-          {parsed.work_experience?.length > 0 && (
-            <Section title="Work Experience">
-              {parsed.work_experience.map((w, i) => (
-                <div key={i} className="text-sm pb-3 last:pb-0"
-                  style={{ borderBottom: i < parsed.work_experience.length - 1 ? `1px solid ${C.border}` : 'none' }}>
-                  <div className="flex justify-between items-baseline">
-                    <span style={{ color: C.inkStrong, fontWeight: 600 }}>{w.company}</span>
-                    <span style={{ color: C.inkFaint, fontSize: 11 }}>{w.period}</span>
-                  </div>
-                  <p style={{ color: C.inkMuted, fontSize: 12, marginTop: 2 }}>{w.role}</p>
-                  <p style={{ color: C.inkFaint, fontSize: 12, marginTop: 3 }}>{w.description}</p>
-                </div>
-              ))}
-            </Section>
-          )}
-
-          {parsed.skills?.length > 0 && (
-            <Section title="Skills">
-              <div className="flex flex-wrap gap-2">
-                {parsed.skills.map((s, i) => (
-                  <span key={i} className="text-xs px-3 py-1 rounded-full"
-                    style={{ background: C.bgSoft, color: C.inkMuted, border: `1px solid ${C.border}` }}>
-                    {s}
-                  </span>
                 ))}
               </div>
-            </Section>
+            </div>
           )}
+
+          {/* Reformatted Resume */}
+          {reformatted && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: C.inkFaint, fontFamily: 'var(--font-sans)' }}>
+                  Your Resume — Reformatted
+                </span>
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1.5 text-xs rounded-lg px-3 py-1.5 transition-all"
+                  style={{
+                    background: copied ? '#D1EBE0' : C.bgSoft,
+                    color: copied ? C.success : C.inkMuted,
+                    border: `1px solid ${copied ? C.success + '50' : C.border}`,
+                  }}>
+                  {copied ? <Check size={11}/> : <Copy size={11}/>}
+                  {copied ? 'Copied!' : 'Copy Text'}
+                </button>
+              </div>
+              <div className="rounded-2xl"
+                style={{ background: C.card, border: `1px solid ${C.border}`, boxShadow: '0 2px 16px rgba(38,63,73,0.07)', overflow: 'hidden' }}>
+                {/* Page-like inner area */}
+                <div style={{ padding: '32px 40px', maxWidth: 720, margin: '0 auto' }}>
+                  {renderMarkdown(reformatted)}
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
-    </div>
-  )
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={sectionStyle}>
-      <p style={sectionLabelStyle}>{title}</p>
-      <div className="space-y-3">{children}</div>
     </div>
   )
 }

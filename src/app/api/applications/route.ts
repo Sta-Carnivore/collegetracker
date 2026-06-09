@@ -24,7 +24,10 @@ export async function GET() {
     .select('*')
     .eq('user_id', user.id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('[applications GET]', error.message)
+    return NextResponse.json({ error: 'Could not load applications.' }, { status: 500 })
+  }
   return NextResponse.json(data)
 }
 
@@ -34,7 +37,20 @@ export async function PATCH(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { school_id, status, supplemental_essays_done, application_type, intended_major, notes, portal_url } = body
+  const {
+    school_id, status, supplemental_essays_done, application_type, intended_major, notes, portal_url,
+    // Per-user overrides of the global school reference data (admin-only to edit globally).
+    deadline_ea, deadline_ed, deadline_rd, notification_date, notification_ea, notification_ed,
+    supplemental_essays_total,
+  } = body
+
+  if (!school_id || typeof school_id !== 'string') {
+    return NextResponse.json({ error: 'school_id required' }, { status: 400 })
+  }
+
+  // Normalize an optional date string: '' → null, otherwise pass through.
+  const dateOrNull = (v: unknown) => (v === undefined ? undefined : (v ? v : null))
+  const intOrNull = (v: unknown) => (v === undefined ? undefined : (v === null || v === '' ? null : Number(v)))
 
   const { data: existing } = await supabase
     .from('applications')
@@ -43,16 +59,26 @@ export async function PATCH(request: NextRequest) {
     .eq('school_id', school_id)
     .single()
 
-  if (existing) {
-    const update: Record<string, unknown> = { updated_at: new Date().toISOString() }
-    if (status !== undefined) update.status = status
-    if (supplemental_essays_done !== undefined) update.supplemental_essays_done = supplemental_essays_done
-    if (application_type !== undefined) update.application_type = application_type
-    if (intended_major !== undefined) update.intended_major = intended_major
-    if (notes !== undefined) update.notes = notes
-    if (portal_url !== undefined) update.portal_url = portal_url
+  // Assemble only the fields that were actually provided.
+  const fields: Record<string, unknown> = {}
+  if (status !== undefined) fields.status = status
+  if (supplemental_essays_done !== undefined) fields.supplemental_essays_done = supplemental_essays_done
+  if (application_type !== undefined) fields.application_type = application_type
+  if (intended_major !== undefined) fields.intended_major = intended_major
+  if (notes !== undefined) fields.notes = notes
+  if (portal_url !== undefined) fields.portal_url = portal_url
+  if (dateOrNull(deadline_ea) !== undefined) fields.deadline_ea = dateOrNull(deadline_ea)
+  if (dateOrNull(deadline_ed) !== undefined) fields.deadline_ed = dateOrNull(deadline_ed)
+  if (dateOrNull(deadline_rd) !== undefined) fields.deadline_rd = dateOrNull(deadline_rd)
+  if (dateOrNull(notification_date) !== undefined) fields.notification_date = dateOrNull(notification_date)
+  if (dateOrNull(notification_ea) !== undefined) fields.notification_ea = dateOrNull(notification_ea)
+  if (dateOrNull(notification_ed) !== undefined) fields.notification_ed = dateOrNull(notification_ed)
+  if (intOrNull(supplemental_essays_total) !== undefined) fields.supplemental_essays_total = intOrNull(supplemental_essays_total)
 
-    await supabase.from('applications').update(update).eq('id', existing.id)
+  if (existing) {
+    await supabase.from('applications')
+      .update({ ...fields, updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
   } else {
     await supabase.from('applications').insert({
       user_id: user.id,
@@ -62,6 +88,7 @@ export async function PATCH(request: NextRequest) {
       intended_major: intended_major ?? null,
       notes: notes ?? null,
       portal_url: portal_url ?? null,
+      ...fields,
       updated_at: new Date().toISOString(),
     })
   }

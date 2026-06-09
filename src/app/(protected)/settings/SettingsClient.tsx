@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Check, Loader2, ExternalLink, Crown, Zap, Eye, EyeOff, AlertTriangle } from 'lucide-react'
+import { Check, Loader2, ExternalLink, Crown, Zap, Eye, EyeOff, AlertTriangle, X } from 'lucide-react'
 import { C } from '@/lib/atlas'
 import { useToast } from '@/components/ui/Toast'
 
@@ -17,6 +17,7 @@ interface Props {
   initialGpa: number | null
   initialSat: number | null
   initialAct: number | null
+  initialMajors: string[]
 }
 
 /* ── Shared styles ────────────────────────────────────── */
@@ -59,6 +60,14 @@ const sectionTitle = {
   marginBottom: 18,
 } as const
 
+const NOT_DECIDED = 'Not Decided'
+const POPULAR_MAJORS = [
+  'Computer Science', 'Business / Economics', 'Biology / Pre-Med',
+  'Engineering', 'Psychology', 'Political Science', 'Mathematics',
+  'Communications', 'Environmental Science', 'Data Science',
+  'Architecture', 'Film / Media', 'Philosophy', 'Nursing',
+]
+
 const PRO_FEATURES = [
   'School Recommender',
   'Application Strategy & Planner',
@@ -68,17 +77,38 @@ const PRO_FEATURES = [
 ]
 
 /* ── Profile section ──────────────────────────────────── */
-function ProfileSection({ initialName, initialYear, initialGpa, initialSat, initialAct }: {
+function ProfileSection({ initialName, initialYear, initialGpa, initialSat, initialAct, initialMajors }: {
   initialName: string; initialYear: number | null
   initialGpa: number | null; initialSat: number | null; initialAct: number | null
+  initialMajors: string[]
 }) {
   const { toast } = useToast()
-  const [name, setName]   = useState(initialName)
-  const [year, setYear]   = useState(initialYear !== null ? String(initialYear) : '')
-  const [gpa,  setGpa]    = useState(initialGpa  !== null ? String(initialGpa)  : '')
-  const [sat,  setSat]    = useState(initialSat  !== null ? String(initialSat)  : '')
-  const [act,  setAct]    = useState(initialAct  !== null ? String(initialAct)  : '')
+  const [name,   setName]   = useState(initialName)
+  const [year,   setYear]   = useState(initialYear !== null ? String(initialYear) : '')
+  const [gpa,    setGpa]    = useState(initialGpa  !== null ? String(initialGpa)  : '')
+  const [sat,    setSat]    = useState(initialSat  !== null ? String(initialSat)  : '')
+  const [act,    setAct]    = useState(initialAct  !== null ? String(initialAct)  : '')
+  const [majors, setMajors] = useState<string[]>(initialMajors)
+  const [customMajor, setCustomMajor] = useState('')
   const [saving, setSaving] = useState(false)
+
+  function toggleMajor(m: string) {
+    if (m === NOT_DECIDED) {
+      setMajors(prev => prev.includes(NOT_DECIDED) ? [] : [NOT_DECIDED])
+    } else {
+      setMajors(prev => {
+        const without = prev.filter(x => x !== NOT_DECIDED)
+        return without.includes(m) ? without.filter(x => x !== m) : [...without, m]
+      })
+    }
+  }
+
+  function addCustom() {
+    const t = customMajor.trim()
+    if (!t || majors.includes(t)) { setCustomMajor(''); return }
+    setMajors(prev => [...prev.filter(x => x !== NOT_DECIDED), t])
+    setCustomMajor('')
+  }
 
   async function save() {
     setSaving(true)
@@ -86,11 +116,12 @@ function ProfileSection({ initialName, initialYear, initialGpa, initialSat, init
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        full_name:       name || null,
-        graduation_year: year ? parseInt(year) : null,
-        gpa:             gpa  ? parseFloat(gpa) : null,
-        sat_score:       sat  ? parseInt(sat)   : null,
-        act_score:       act  ? parseInt(act)   : null,
+        full_name:        name || null,
+        graduation_year:  year ? parseInt(year) : null,
+        gpa:              gpa  ? parseFloat(gpa) : null,
+        sat_score:        sat  ? parseInt(sat)   : null,
+        act_score:        act  ? parseInt(act)   : null,
+        intended_majors:  majors,
       }),
     })
     setSaving(false)
@@ -141,6 +172,50 @@ function ProfileSection({ initialName, initialYear, initialGpa, initialSat, init
               style={inputStyle}
               onFocus={e => (e.currentTarget.style.borderColor = C.teal)}
               onBlur={e => (e.currentTarget.style.borderColor = C.border)}/>
+          </div>
+        </div>
+
+        {/* Intended majors */}
+        <div>
+          <label style={labelStyle}>Intended major(s)</label>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            <button onClick={() => toggleMajor(NOT_DECIDED)}
+              className="text-xs px-2.5 py-1 rounded-lg font-medium transition-all"
+              style={majors.includes(NOT_DECIDED)
+                ? { background: C.paleGold, color: C.gold, border: `1px solid ${C.gold}50` }
+                : { background: C.bgSoft, color: C.inkMuted, border: `1px solid ${C.border}` }}>
+              Not Decided
+            </button>
+            {POPULAR_MAJORS.map(m => (
+              <button key={m} onClick={() => toggleMajor(m)}
+                className="text-xs px-2.5 py-1 rounded-lg font-medium transition-all"
+                style={majors.includes(m)
+                  ? { background: C.paleTeal, color: C.teal, border: `1px solid ${C.teal}40` }
+                  : { background: C.bgSoft, color: C.inkMuted, border: `1px solid ${C.border}` }}>
+                {m}
+              </button>
+            ))}
+            {majors.filter(m => !POPULAR_MAJORS.includes(m) && m !== NOT_DECIDED).map(m => (
+              <span key={m} className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg"
+                style={{ background: C.paleTeal, color: C.teal, border: `1px solid ${C.teal}40` }}>
+                {m}
+                <button onClick={() => toggleMajor(m)} className="opacity-60 hover:opacity-100 ml-0.5"><X size={9}/></button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input type="text" value={customMajor} onChange={e => setCustomMajor(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addCustom()}
+              placeholder="Other major…" style={{ ...inputStyle, flex: 1 }}
+              onFocus={e => (e.currentTarget.style.borderColor = C.teal)}
+              onBlur={e => (e.currentTarget.style.borderColor = C.border)}/>
+            <button onClick={addCustom}
+              className="text-sm px-3 rounded-lg transition-all"
+              style={{ background: C.bgSoft, color: C.inkMuted, border: `1px solid ${C.border}` }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.teal + '55' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.border }}>
+              Add
+            </button>
           </div>
         </div>
 
@@ -475,7 +550,7 @@ function DangerZone({ email }: { email: string }) {
 /* ── Main ─────────────────────────────────────────────── */
 function SettingsInner({
   email, provider, isPro, subscriptionPeriod, resumeCallsUsed,
-  initialName, initialYear, initialGpa, initialSat, initialAct,
+  initialName, initialYear, initialGpa, initialSat, initialAct, initialMajors,
 }: Props) {
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -501,10 +576,11 @@ function SettingsInner({
         </div>
       )}
 
-      <div className="space-y-5 max-w-2xl">
+      <div className="space-y-5">
         <ProfileSection
           initialName={initialName} initialYear={initialYear}
-          initialGpa={initialGpa} initialSat={initialSat} initialAct={initialAct}/>
+          initialGpa={initialGpa} initialSat={initialSat} initialAct={initialAct}
+          initialMajors={initialMajors}/>
 
         {isEmailProvider && <PasswordSection/>}
 

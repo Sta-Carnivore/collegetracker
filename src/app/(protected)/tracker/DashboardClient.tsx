@@ -1,24 +1,27 @@
 'use client'
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { School, Application, ApplicationStatus, ApplicationType } from '@/types/database'
+import { School, Application, ApplicationStatus, ApplicationType, SchoolEssay } from '@/types/database'
 import SchoolCard from '@/components/dashboard/SchoolCard'
 import SchoolRow from '@/components/dashboard/SchoolRow'
 import SchoolDrawer from '@/components/dashboard/SchoolDrawer'
 import AddSchoolModal from '@/components/dashboard/AddSchoolModal'
-import { LayoutGrid, List, Download, Search, Plus } from 'lucide-react'
+import { LayoutGrid, List, Download, Search, Plus, Trash2 } from 'lucide-react'
 import { C } from '@/lib/atlas'
 import { useToast } from '@/components/ui/Toast'
+import { getEffectiveDeadline, getEffectiveNotification } from '@/lib/rounds'
 
 interface Props {
   schools: School[]
   initialApplications: Application[]
+  essaysBySchool: Record<string, SchoolEssay[]>
+  initialEssayProgress: Record<string, boolean>
 }
 
 type ViewMode = 'icon' | 'list'
 type GroupKey = 'EA' | 'REA' | 'ED' | 'UC' | 'RD' | 'Rolling' | 'not_set'
 
-const GROUP_ORDER: GroupKey[] = ['EA', 'REA', 'ED', 'UC', 'RD', 'Rolling', 'not_set']
+const GROUP_ORDER: GroupKey[] = ['ED', 'REA', 'EA', 'UC', 'RD', 'Rolling', 'not_set']
 
 const GROUP_META: Record<GroupKey, { label: string; color: string; bg: string }> = {
   EA:      { label: 'Early Action',             color: C.teal,    bg: C.paleTeal  },
@@ -46,25 +49,29 @@ function getGroup(school: School, appType: ApplicationType | null | undefined): 
   return 'RD'
 }
 
-function getDeadlineSort(school: School, appType: ApplicationType | null | undefined): string {
+function getDeadlineSort(school: School, application: Application | null | undefined, appType: ApplicationType | null | undefined): string {
   if (school.deadline_rolling) return '9998'
-  if (appType === 'EA' || appType === 'REA') return school.deadline_ea ?? '9999'
-  if (appType === 'ED') return school.deadline_ed ?? '9999'
-  if (appType === 'RD') return school.deadline_rd ?? '9999'
-  return school.deadline_ea ?? school.deadline_ed ?? school.deadline_rd ?? '9999'
+  return getEffectiveDeadline(school, application, appType) ?? '9999'
 }
 
 function exportCSV(schools: School[], applications: Application[]) {
   const appBySchool = Object.fromEntries(applications.map(a => [a.school_id, a]))
+  const groupRank: Record<string, number> = { ED: 0, REA: 1, EA: 2, UC: 3, RD: 4, Rolling: 5, not_set: 6 }
+  const sorted = [...schools].sort((a, b) => {
+    const ga = groupRank[getGroup(a, appBySchool[a.id]?.application_type)] ?? 6
+    const gb = groupRank[getGroup(b, appBySchool[b.id]?.application_type)] ?? 6
+    return ga !== gb ? ga - gb : a.name.localeCompare(b.name)
+  })
   const rows = [
     ['School','Round','Status','Deadline','Notification','Essays Done','Essays Total','Major','Notes'],
-    ...schools.map(s => {
+    ...sorted.map(s => {
       const a = appBySchool[s.id]
+      const at = a?.application_type ?? null
       return [
-        s.name, a?.application_type ?? '', a?.status ?? 'not_started',
-        s.deadline_rolling ? 'Rolling' : s.deadline_rd ?? '',
-        s.notification_date ?? '',
-        String(a?.supplemental_essays_done ?? 0), String(s.supplemental_essay_count),
+        s.name, at ?? '', a?.status ?? 'not_started',
+        s.deadline_rolling ? 'Rolling' : (getEffectiveDeadline(s, a, at) ?? ''),
+        getEffectiveNotification(s, a, at) ?? '',
+        String(a?.supplemental_essays_done ?? 0), String(a?.supplemental_essays_total ?? s.supplemental_essay_count),
         a?.intended_major ?? '', a?.notes ?? '',
       ]
     }),
@@ -88,7 +95,7 @@ const selectStyle = {
   fontFamily: 'var(--font-sans)',
 } as const
 
-export default function DashboardClient({ schools, initialApplications }: Props) {
+export default function DashboardClient({ schools, initialApplications, essaysBySchool, initialEssayProgress }: Props) {
   const { toast } = useToast()
   const [applications, setApplications] = useState<Application[]>(initialApplications)
   const [view, setView]               = useState<ViewMode>('icon')
@@ -100,6 +107,8 @@ export default function DashboardClient({ schools, initialApplications }: Props)
   const [showAddModal, setShowAddModal] = useState(false)
   const [draggingId, setDraggingId]       = useState<string | null>(null)
   const [dragOverGroup, setDragOverGroup] = useState<GroupKey | null>(null)
+  const [dragOverTrash, setDragOverTrash] = useState(false)
+  const [essayProgress, setEssayProgress] = useState<Record<string, boolean>>(initialEssayProgress)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -152,14 +161,16 @@ export default function DashboardClient({ schools, initialApplications }: Props)
   const refreshAll = useCallback(() => window.location.reload(), [])
 
   async function updateApplication(schoolId: string, fields: Record<string, unknown>) {
+    setApplications(prev =>
+      prev.map(a => a.school_id === schoolId ? { ...a, ...fields } as Application : a)
+    )
     const res = await fetch('/api/applications', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ school_id: schoolId, ...fields }),
     })
     if (res.ok) toast('Saved')
-    else toast('Failed to save', 'error')
-    refresh()
+    else { toast('Failed to save', 'error'); refresh() }
   }
 
   function handleDragStart(e: React.DragEvent, schoolId: string) {
@@ -171,6 +182,18 @@ export default function DashboardClient({ schools, initialApplications }: Props)
   function handleDragEnd() {
     setDraggingId(null)
     setDragOverGroup(null)
+    setDragOverTrash(false)
+  }
+
+  async function handleDropOnTrash() {
+    if (!draggingId) return
+    const schoolId = draggingId
+    setDraggingId(null)
+    setDragOverTrash(false)
+    setApplications(prev => prev.filter(a => a.school_id !== schoolId))
+    const res = await fetch(`/api/applications?school_id=${schoolId}`, { method: 'DELETE' })
+    if (res.ok) { toast('School removed'); refreshAll() }
+    else { toast('Failed to remove', 'error'); refresh() }
   }
 
   async function handleDropOnGroup(groupKey: GroupKey) {
@@ -234,7 +257,7 @@ export default function DashboardClient({ schools, initialApplications }: Props)
       if (!map[key]) continue
       map[key]!.sort((a, b) => sortBy === 'name'
         ? a.name.localeCompare(b.name)
-        : getDeadlineSort(a, appBySchool[a.id]?.application_type).localeCompare(getDeadlineSort(b, appBySchool[b.id]?.application_type))
+        : getDeadlineSort(a, appBySchool[a.id], appBySchool[a.id]?.application_type).localeCompare(getDeadlineSort(b, appBySchool[b.id], appBySchool[b.id]?.application_type))
       )
     }
     return map
@@ -452,7 +475,7 @@ export default function DashboardClient({ schools, initialApplications }: Props)
                     <table className="w-full">
                       <thead>
                         <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                          {['School','Deadline','Notification','Status','Essays','Portal',''].map(h => (
+                          {['','School','Deadline','Notification','Status','Essays','Portal',''].map(h => (
                             <th key={h} className="text-left py-3 px-2 first:pl-4 last:pr-4 text-xs font-semibold uppercase tracking-wider"
                               style={{ color: C.inkFaint }}>
                               {h}
@@ -493,8 +516,80 @@ export default function DashboardClient({ schools, initialApplications }: Props)
         </div>
       )}
 
+      {/* Trash drop zone — slides in from right while any card is being dragged */}
+      <div
+        onDragOver={e => {
+          if (!draggingId) return
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'move'
+          if (!dragOverTrash) setDragOverTrash(true)
+        }}
+        onDragLeave={e => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverTrash(false)
+        }}
+        onDrop={e => { e.preventDefault(); handleDropOnTrash() }}
+        style={{
+          position: 'fixed',
+          right: 0,
+          top: 0,
+          height: '100vh',
+          width: dragOverTrash ? 100 : 72,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          background: dragOverTrash ? `${C.danger}18` : 'rgba(247,242,232,0.55)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          borderLeft: `1.5px solid ${dragOverTrash ? C.danger + '60' : C.border}`,
+          opacity: draggingId ? 1 : 0,
+          transform: draggingId ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'opacity 0.2s ease, transform 0.22s ease, width 0.15s ease, background 0.15s, border-color 0.15s',
+          pointerEvents: draggingId ? 'auto' : 'none',
+          zIndex: 50,
+          cursor: dragOverTrash ? 'copy' : 'default',
+        }}
+      >
+        <div style={{
+          width: 44,
+          height: 44,
+          borderRadius: '50%',
+          background: dragOverTrash ? `${C.danger}22` : 'transparent',
+          border: `1.5px solid ${dragOverTrash ? C.danger + '80' : C.border}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'all 0.15s ease',
+        }}>
+          <Trash2
+            size={dragOverTrash ? 22 : 18}
+            style={{
+              color: dragOverTrash ? C.danger : C.inkFaint,
+              transition: 'color 0.15s, transform 0.15s',
+              transform: dragOverTrash ? 'scale(1.1) translateY(-1px)' : 'scale(1)',
+            }}
+          />
+        </div>
+        <span style={{
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: dragOverTrash ? C.danger : C.inkFaint,
+          opacity: dragOverTrash ? 1 : 0.6,
+          transition: 'color 0.15s, opacity 0.15s',
+          fontFamily: 'var(--font-sans)',
+        }}>
+          {dragOverTrash ? 'Remove' : 'Trash'}
+        </span>
+      </div>
+
       {drawerSchool && (
         <SchoolDrawer school={drawerSchool} application={drawerApp}
+          essays={essaysBySchool[drawerSchool.id] ?? []}
+          essayProgress={essayProgress}
+          onEssayToggle={(essayId, done) => setEssayProgress(p => ({ ...p, [essayId]: done }))}
           onClose={() => setDrawerSchool(null)}
           onUpdate={() => { refresh(); setDrawerSchool(null) }}
           onRemove={() => { setDrawerSchool(null); refreshAll() }}/>

@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, GripVertical } from 'lucide-react'
 import { School, Application, ApplicationStatus } from '@/types/database'
 import { statusConfig } from './StatusBadge'
-import { getNotificationDate } from '@/lib/rounds'
+import { getEffectiveDeadline, getEffectiveNotification } from '@/lib/rounds'
 import { daysUntil, deadlineUrgency, formatDays } from '@/lib/deadline'
 import { C } from '@/lib/atlas'
 
@@ -19,7 +19,7 @@ interface Props {
   school: School
   application: Application | null
   onOpen: () => void
-  onUpdate: (fields: Partial<{ status: ApplicationStatus; supplemental_essays_done: number }>) => void
+  onUpdate: (fields: Partial<{ status: ApplicationStatus }>) => void
   dragProps?: DragProps
 }
 
@@ -31,41 +31,20 @@ function fmt(date: string | null) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function deadline(school: School, appType: string | null) {
-  if (school.deadline_rolling) return 'Rolling'
-  if (appType === 'EA' || appType === 'REA') return fmt(school.deadline_ea)
-  if (appType === 'ED') return fmt(school.deadline_ed)
-  if (appType === 'RD') return fmt(school.deadline_rd)
-  return fmt(school.deadline_ea ?? school.deadline_ed ?? school.deadline_rd)
-}
-
 export default function SchoolRow({ school, application, onOpen, onUpdate, dragProps }: Props) {
   const [status, setStatus] = useState<ApplicationStatus>(application?.status ?? 'not_started')
-  const [essaysDone, setEssaysDone] = useState(application?.supplemental_essays_done ?? 0)
 
-  const essaysTotal = school.supplemental_essay_count
-  const dlStr = deadline(school, application?.application_type ?? null)
-  const rawDeadline = (() => {
-    const t = application?.application_type ?? null
-    if (school.deadline_rolling) return null
-    if (t === 'EA' || t === 'REA') return school.deadline_ea
-    if (t === 'ED') return school.deadline_ed
-    if (t === 'RD') return school.deadline_rd
-    return school.deadline_ea ?? school.deadline_ed ?? school.deadline_rd
-  })()
+  const appType = application?.application_type ?? null
+  const essaysDone = application?.supplemental_essays_done ?? 0
+  const essaysTotal = application?.supplemental_essays_total ?? school.supplemental_essay_count
+  const rawDeadline = school.deadline_rolling ? null : getEffectiveDeadline(school, application, appType)
+  const dlStr = school.deadline_rolling ? 'Rolling' : fmt(rawDeadline)
   const days = daysUntil(rawDeadline)
   const st = statusConfig[status]
 
   function handleStatusChange(newStatus: ApplicationStatus) {
     setStatus(newStatus)
     onUpdate({ status: newStatus })
-  }
-
-  function handleEssayDelta(delta: number) {
-    const next = Math.min(essaysTotal, Math.max(0, essaysDone + delta))
-    if (next === essaysDone) return
-    setEssaysDone(next)
-    onUpdate({ supplemental_essays_done: next })
   }
 
   return (
@@ -83,7 +62,12 @@ export default function SchoolRow({ school, application, onOpen, onUpdate, dragP
       onMouseEnter={e => { if (!dragProps?.isDragging) (e.currentTarget as HTMLElement).style.background = C.bgSoft }}
       onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
     >
-      <td className="py-3 pl-4 pr-2">
+      <td className="py-3 pl-3 pr-1 w-4">
+        {dragProps?.draggable && (
+          <GripVertical size={13} style={{ color: C.inkFaint, cursor: 'grab' }}/>
+        )}
+      </td>
+      <td className="py-3 pl-1 pr-2">
         <button
           onClick={onOpen}
           className="text-sm font-medium text-left transition-colors"
@@ -103,7 +87,7 @@ export default function SchoolRow({ school, application, onOpen, onUpdate, dragP
         )}
       </td>
       <td className="py-3 px-2 text-sm whitespace-nowrap" style={{ color: C.inkFaint }}>
-        {fmt(getNotificationDate(school, application?.application_type))}
+        {fmt(getEffectiveNotification(school, application, appType))}
       </td>
       <td className="py-3 px-2">
         <select
@@ -118,27 +102,15 @@ export default function SchoolRow({ school, application, onOpen, onUpdate, dragP
         </select>
       </td>
       <td className="py-3 px-2">
-        {essaysTotal > 0 ? (
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => handleEssayDelta(-1)}
-              disabled={essaysDone === 0}
-              className="w-5 h-5 rounded flex items-center justify-center text-sm transition-colors disabled:opacity-30"
-              style={{ background: C.bgSoft, color: C.inkMuted }}
-            >−</button>
+        <button onClick={onOpen} className="text-left">
+          {essaysTotal > 0 ? (
             <span className="text-sm tabular-nums" style={{ color: essaysDone === essaysTotal ? C.success : C.inkMuted }}>
               {essaysDone}/{essaysTotal}
             </span>
-            <button
-              onClick={() => handleEssayDelta(1)}
-              disabled={essaysDone === essaysTotal}
-              className="w-5 h-5 rounded flex items-center justify-center text-sm transition-colors disabled:opacity-30"
-              style={{ background: C.bgSoft, color: C.inkMuted }}
-            >+</button>
-          </div>
-        ) : (
-          <span className="text-sm" style={{ color: C.inkFaint }}>—</span>
-        )}
+          ) : (
+            <span className="text-sm" style={{ color: C.inkFaint }}>—</span>
+          )}
+        </button>
       </td>
       <td className="py-3 px-2">
         {application?.portal_url ? (

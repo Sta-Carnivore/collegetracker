@@ -24,13 +24,19 @@ export async function POST(request: NextRequest) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
     const userId = session.metadata?.supabase_user_id
-    const period = session.metadata?.period as 'monthly' | 'quarterly'
+    const period = session.metadata?.period
 
-    if (userId) {
+    if (userId && period === 'bio_onetime') {
+      // One-time $15 Bio Website purchase.
+      await supabaseAdmin.from('users').update({
+        has_bio_purchase: true,
+      }).eq('id', userId)
+    } else if (userId && period) {
+      // Pro subscription (monthly or quarterly).
       await supabaseAdmin.from('users').update({
         is_pro: true,
         stripe_subscription_id: session.subscription as string,
-        subscription_period: period,
+        subscription_period: period as 'monthly' | 'quarterly',
       }).eq('id', userId)
     }
   }

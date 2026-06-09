@@ -8,6 +8,7 @@ import { C } from '@/lib/atlas'
 const CURRENT_YEAR = new Date().getFullYear()
 const GRAD_YEARS = [CURRENT_YEAR, CURRENT_YEAR + 1, CURRENT_YEAR + 2, CURRENT_YEAR + 3, CURRENT_YEAR + 4]
 
+const NOT_DECIDED = 'Not Decided'
 const POPULAR_MAJORS = [
   'Computer Science', 'Business / Economics', 'Biology / Pre-Med',
   'Engineering', 'Psychology', 'Political Science', 'Mathematics',
@@ -70,7 +71,14 @@ export default function OnboardingClient({
   const stepPale  = STEP_PALE[step - 1]
 
   function toggleMajor(m: string) {
-    setMajors(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])
+    if (m === NOT_DECIDED) {
+      setMajors(prev => prev.includes(NOT_DECIDED) ? [] : [NOT_DECIDED])
+    } else {
+      setMajors(prev => {
+        const without = prev.filter(x => x !== NOT_DECIDED)
+        return without.includes(m) ? without.filter(x => x !== m) : [...without, m]
+      })
+    }
   }
 
   function addCustomMajor() {
@@ -225,8 +233,19 @@ export default function OnboardingClient({
         {/* Step 3: Majors */}
         {step === 3 && (
           <div className="space-y-4">
-            <p style={{ fontSize: 12, color: C.inkMuted, marginTop: -8 }}>Select all that interest you, or add your own.</p>
+            <p style={{ fontSize: 12, color: C.inkMuted, marginTop: -8 }}>
+              Select at least one — choose <strong style={{ fontWeight: 600 }}>Not Decided</strong> if you haven&apos;t picked yet.
+            </p>
             <div className="flex flex-wrap gap-2">
+              {/* Not Decided chip — always first */}
+              <button onClick={() => toggleMajor(NOT_DECIDED)}
+                className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all"
+                style={majors.includes(NOT_DECIDED)
+                  ? { background: C.paleGold, color: C.gold, border: `1px solid ${C.gold}50` }
+                  : { background: C.bgSoft, color: C.inkMuted, border: `1px solid ${C.border}` }
+                }>
+                Not Decided
+              </button>
               {POPULAR_MAJORS.map(m => (
                 <button key={m} onClick={() => toggleMajor(m)}
                   className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all"
@@ -299,7 +318,7 @@ export default function OnboardingClient({
 
         {/* Footer */}
         <div className="flex gap-3 mt-6">
-          {step < totalSteps && (
+          {step < totalSteps && step !== 3 && (
             <button onClick={handleSkip} className="text-sm px-3 transition-colors"
               style={{ color: C.inkFaint }}
               onMouseEnter={e => (e.currentTarget.style.color = C.inkMuted)}
@@ -309,7 +328,7 @@ export default function OnboardingClient({
           )}
           <button
             onClick={step < totalSteps ? handleNext : handleFinish}
-            disabled={saving}
+            disabled={saving || (step === 3 && majors.length === 0)}
             className="flex-1 flex items-center justify-center gap-2 text-sm rounded-xl py-2.5 font-semibold transition-all disabled:opacity-50"
             style={{ background: stepColor, color: 'white' }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.88'}

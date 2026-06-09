@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { isAdminEmail } from '@/lib/admin'
 import Sidebar from '@/components/layout/Sidebar'
 import BottomNav from '@/components/layout/BottomNav'
 import { ToastProvider } from '@/components/ui/Toast'
@@ -19,10 +20,12 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   if (profile?.onboarding_completed !== true) redirect('/onboarding')
 
+  const admin = isAdminEmail(user.email)
+
   return (
     <ToastProvider>
       <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#EEE7D9' }}>
-        <Sidebar />
+        <Sidebar isAdmin={admin} />
 
         <div
           className="flex-1 min-w-0 overflow-y-auto"

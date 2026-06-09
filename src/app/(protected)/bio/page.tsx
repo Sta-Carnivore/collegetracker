@@ -1,47 +1,46 @@
 export const dynamic = 'force-dynamic'
 
-import { Globe, Sparkles, Lock } from 'lucide-react'
-import { C } from '@/lib/atlas'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import BioClient from './BioClient'
 
-export default function BioPage() {
+export default async function BioPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const [{ data: profile }, { data: bioPage }] = await Promise.all([
+    supabase.from('profiles')
+      .select('full_name, intended_major, intended_majors, resume_parsed, resume_raw_text')
+      .eq('user_id', user.id).single(),
+    supabase.from('bio_pages')
+      .select('slug, published, html, style')
+      .eq('user_id', user.id).single(),
+  ])
+
+  const resumeParsed = profile?.resume_parsed as any
+  const resumeItems: { title: string; description?: string }[] = [
+    ...(resumeParsed?.activities ?? []).map((a: any) => ({ title: a.name ?? a.title, description: a.description })),
+    ...(resumeParsed?.awards ?? []).map((a: any) => ({ title: a.name })),
+    ...(resumeParsed?.work_experience ?? []).map((w: any) => ({ title: `${w.role} @ ${w.company}`, description: w.description })),
+  ].filter(i => i.title)
+
+  const major = profile?.intended_major ?? profile?.intended_majors?.[0] ?? ''
+
+  // A resume is "present" if we have raw text or any extracted item. Generation
+  // uses the raw text directly, so this — not the structured arrays alone —
+  // reflects whether we actually have resume data to work from.
+  const hasResume = !!(profile?.resume_raw_text?.trim() || resumeItems.length > 0)
+
   return (
-    <div style={{ color: C.ink }}>
-      <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(1.4rem,2vw,1.8rem)', color: C.inkStrong, fontWeight: 600, marginBottom: 6 }}>
-        Bio Website
-      </h1>
-      <p className="text-sm mb-8" style={{ color: C.inkMuted }}>
-        Generate a personal college application profile page — shareable with admissions officers.
-      </p>
-
-      <div className="rounded-2xl p-10 text-center"
-        style={{ background: C.card, border: `1px solid ${C.border}`, boxShadow: '0 2px 10px rgba(38,63,73,0.07)' }}>
-        <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5"
-          style={{ background: C.palePlum, border: `1px solid ${C.plum}30` }}>
-          <Globe size={24} style={{ color: C.plum }}/>
-        </div>
-        <h2 style={{ fontFamily: 'var(--font-serif)', color: C.inkStrong, fontWeight: 600, fontSize: 18, marginBottom: 8 }}>
-          Coming Soon
-        </h2>
-        <p style={{ color: C.inkMuted, fontSize: 14, maxWidth: 360, margin: '0 auto 20px' }}>
-          We&apos;re building a beautiful one-page bio site generator tailored for college applicants. Stay tuned.
-        </p>
-
-        <div className="inline-flex flex-col gap-3 text-left mt-2 text-sm">
-          {[
-            { icon: Sparkles, text: 'AI-generated from your resume & profile' },
-            { icon: Globe,    text: 'Custom subdomain — share with anyone' },
-            { icon: Lock,     text: 'Toggle visibility on/off anytime' },
-          ].map(({ icon: Icon, text }) => (
-            <div key={text} className="flex items-center gap-3" style={{ color: C.inkMuted }}>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: C.bgSoft, border: `1px solid ${C.border}` }}>
-                <Icon size={13} style={{ color: C.inkFaint }}/>
-              </div>
-              {text}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+    <BioClient
+      profileName={profile?.full_name ?? ''}
+      resumeItems={resumeItems}
+      hasResume={hasResume}
+      prefillGoal={major ? `Study ${major}` : ''}
+      existingSlug={bioPage?.published ? bioPage.slug : null}
+      existingHtml={bioPage?.html ?? null}
+      existingStyle={(bioPage?.style as any) ?? null}
+    />
   )
 }

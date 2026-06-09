@@ -11,7 +11,7 @@ export default async function SettingsPage() {
 
   const [{ data: userData }, { data: profile }] = await Promise.all([
     supabase.from('users').select('is_pro, subscription_period, ai_resume_calls_this_month').eq('id', user.id).single(),
-    supabase.from('profiles').select('full_name, graduation_year, gpa, sat_score, act_score').eq('user_id', user.id).single(),
+    supabase.from('profiles').select('full_name, graduation_year, gpa, sat_score, act_score, intended_majors').eq('user_id', user.id).single(),
   ])
 
   const provider = (user.app_metadata?.provider as string) ?? 'email'
@@ -28,6 +28,7 @@ export default async function SettingsPage() {
       initialGpa={profile?.gpa ?? null}
       initialSat={profile?.sat_score ?? null}
       initialAct={profile?.act_score ?? null}
+      initialMajors={profile?.intended_majors ?? []}
     />
   )
 }

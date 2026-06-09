@@ -11,6 +11,7 @@ import {
   CalendarRange,
   Settings,
   LogOut,
+  BarChart3,
 } from 'lucide-react'
 import { C } from '@/lib/atlas'
 
@@ -19,14 +20,15 @@ const primaryNav = [
   { href: '/tracker',     label: 'Tracker',     icon: Table2 },
   { href: '/resume',      label: 'AI Resume',   icon: FileText },
   { href: '/bio',         label: 'Bio Website', icon: Globe },
-  { href: '/ai/strategy', label: 'Planner',     icon: CalendarRange },
+  { href: '/planner',     label: 'Planner',     icon: CalendarRange },
 ]
 
-const secondaryNav = [
-  { href: '/settings', label: 'Settings', icon: Settings },
-]
+export default function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
+  const secondaryNav = [
+    { href: '/settings', label: 'Settings', icon: Settings },
+    ...(isAdmin ? [{ href: '/admin/usage', label: 'Admin · Usage', icon: BarChart3 }] : []),
+  ]
 
-export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { X, ExternalLink } from 'lucide-react'
-import { School, Application, ApplicationStatus, ApplicationType } from '@/types/database'
+import { X, ExternalLink, Check } from 'lucide-react'
+import { School, Application, ApplicationStatus, ApplicationType, SchoolEssay } from '@/types/database'
 import { getAvailableRounds } from '@/lib/rounds'
 import { statusConfig } from './StatusBadge'
 import { C } from '@/lib/atlas'
@@ -11,6 +11,9 @@ import { useToast } from '@/components/ui/Toast'
 interface Props {
   school: School
   application: Application | null
+  essays: SchoolEssay[]
+  essayProgress: Record<string, boolean>
+  onEssayToggle: (essayId: string, done: boolean) => void
   onClose: () => void
   onUpdate: () => void
   onRemove: () => void
@@ -59,25 +62,40 @@ const statCellStyle = {
   padding: '10px 12px',
 }
 
-export default function SchoolDrawer({ school, application, onClose, onUpdate, onRemove }: Props) {
+export default function SchoolDrawer({ school, application, essays, essayProgress, onEssayToggle, onClose, onUpdate, onRemove }: Props) {
   const { toast } = useToast()
   const [status, setStatus]         = useState<ApplicationStatus>(application?.status ?? 'not_started')
   const [appType, setAppType]       = useState<ApplicationType | ''>(application?.application_type ?? '')
   const [major, setMajor]           = useState(application?.intended_major ?? '')
   const [notes, setNotes]           = useState(application?.notes ?? '')
   const [portalUrl, setPortalUrl]   = useState(application?.portal_url ?? '')
-  const [essaysDone, setEssaysDone] = useState(application?.supplemental_essays_done ?? 0)
+  const [localProgress, setLocalProgress] = useState<Record<string, boolean>>(essayProgress)
   const [saving, setSaving]         = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [removing, setRemoving]     = useState(false)
 
-  const [deadlineEa, setDeadlineEa]             = useState(school.deadline_ea ?? '')
-  const [deadlineEd, setDeadlineEd]             = useState(school.deadline_ed ?? '')
-  const [deadlineRd, setDeadlineRd]             = useState(school.deadline_rd ?? '')
-  const [notificationDate, setNotificationDate] = useState(school.notification_date ?? '')
-  const [notificationEa, setNotificationEa]     = useState(school.notification_ea ?? '')
-  const [notificationEd, setNotificationEd]     = useState(school.notification_ed ?? '')
-  const [suppCount, setSuppCount]               = useState(school.supplemental_essay_count)
+  const essaysDone = essays.filter(e => localProgress[e.id]).length
+  const essaysTotal = essays.length
+
+  // Edits seed from the user's personal override when present, else the school's
+  // official value. Saving writes to the user's application row, never the global
+  // schools table.
+  const [deadlineEa, setDeadlineEa]             = useState(application?.deadline_ea ?? school.deadline_ea ?? '')
+  const [deadlineEd, setDeadlineEd]             = useState(application?.deadline_ed ?? school.deadline_ed ?? '')
+  const [deadlineRd, setDeadlineRd]             = useState(application?.deadline_rd ?? school.deadline_rd ?? '')
+  const [notificationDate, setNotificationDate] = useState(application?.notification_date ?? school.notification_date ?? '')
+  const [notificationEa, setNotificationEa]     = useState(application?.notification_ea ?? school.notification_ea ?? '')
+  const [notificationEd, setNotificationEd]     = useState(application?.notification_ed ?? school.notification_ed ?? '')
+  async function toggleEssay(essayId: string) {
+    const next = !localProgress[essayId]
+    setLocalProgress(p => ({ ...p, [essayId]: next }))
+    onEssayToggle(essayId, next)
+    await fetch('/api/essay-progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ school_essay_id: essayId, done: next }),
+    })
+  }
 
   const availableRounds = getAvailableRounds(school)
   const hasREA = availableRounds.includes('REA'), hasEA = availableRounds.includes('EA')
@@ -85,34 +103,26 @@ export default function SchoolDrawer({ school, application, onClose, onUpdate, o
   const hasRolling = availableRounds.includes('Rolling')
   const deadlineCols = [(hasREA || hasEA), hasED, (hasRD || hasRolling)].filter(Boolean).length
   const gridCls = deadlineCols === 3 ? 'grid-cols-3' : deadlineCols === 2 ? 'grid-cols-2' : 'grid-cols-1'
-  const essaysTotal = suppCount
   const st = statusConfig[status]
 
   async function save() {
     setSaving(true)
-    await Promise.all([
-      fetch('/api/applications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          school_id: school.id, status,
-          application_type: appType || null,
-          intended_major: major || null,
-          notes: notes || null,
-          portal_url: portalUrl || null,
-          supplemental_essays_done: essaysDone,
-        }),
+    // Everything saves to the user's OWN application row — including the deadline
+    // and notification overrides. The global schools table is never written here.
+    await fetch('/api/applications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        school_id: school.id, status,
+        application_type: appType || null,
+        intended_major: major || null,
+        notes: notes || null,
+        portal_url: portalUrl || null,
+        supplemental_essays_done: essaysDone,
+        deadline_ea: deadlineEa, deadline_ed: deadlineEd, deadline_rd: deadlineRd,
+        notification_date: notificationDate, notification_ea: notificationEa, notification_ed: notificationEd,
       }),
-      fetch(`/api/schools/${school.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          deadline_ea: deadlineEa, deadline_ed: deadlineEd, deadline_rd: deadlineRd,
-          notification_date: notificationDate, notification_ea: notificationEa, notification_ed: notificationEd,
-          supplemental_essay_count: suppCount,
-        }),
-      }),
-    ])
+    })
     setSaving(false)
     toast('Changes saved')
     onUpdate()
@@ -162,11 +172,9 @@ export default function SchoolDrawer({ school, application, onClose, onUpdate, o
             </div>
             <div style={statCellStyle}>
               <p style={{ color: C.inkFaint, fontSize: 11, marginBottom: 4 }}>Supplementals</p>
-              <input
-                type="number" min={0} max={20} value={suppCount}
-                onChange={e => setSuppCount(Number(e.target.value))}
-                style={{ background: 'transparent', color: C.inkStrong, fontWeight: 600, fontSize: 13, outline: 'none', width: '100%' }}
-              />
+              <p style={{ color: essaysDone === essaysTotal && essaysTotal > 0 ? C.success : C.inkStrong, fontWeight: 600, fontSize: 13 }}>
+                {essaysTotal > 0 ? `${essaysDone} / ${essaysTotal}` : '—'}
+              </p>
             </div>
             <div style={statCellStyle}>
               <p style={{ color: C.inkFaint, fontSize: 11, marginBottom: 4 }}>SAT Median</p>
@@ -284,20 +292,38 @@ export default function SchoolDrawer({ school, application, onClose, onUpdate, o
               onBlur={e => (e.currentTarget.style.borderColor = C.border)}/>
           </div>
 
-          {essaysTotal > 0 && (
+          {essays.length > 0 && (
             <div className="space-y-2">
               <label style={labelStyle}>Supplemental Essays ({essaysDone}/{essaysTotal})</label>
-              <div className="flex items-center gap-3">
-                <button onClick={() => setEssaysDone(Math.max(0, essaysDone - 1))} disabled={essaysDone === 0}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-lg transition-colors disabled:opacity-30"
-                  style={{ background: C.bgSoft, color: C.inkMuted, border: `1px solid ${C.border}` }}>−</button>
-                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: C.bgSoft }}>
-                  <div className="h-full rounded-full transition-all"
-                    style={{ width: `${(essaysDone / essaysTotal) * 100}%`, background: essaysDone === essaysTotal ? C.success : C.teal }}/>
-                </div>
-                <button onClick={() => setEssaysDone(Math.min(essaysTotal, essaysDone + 1))} disabled={essaysDone === essaysTotal}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-lg transition-colors disabled:opacity-30"
-                  style={{ background: C.bgSoft, color: C.inkMuted, border: `1px solid ${C.border}` }}>+</button>
+              <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: C.bgSoft }}>
+                <div className="h-full rounded-full transition-all"
+                  style={{ width: essaysTotal > 0 ? `${(essaysDone / essaysTotal) * 100}%` : '0%', background: essaysDone === essaysTotal ? C.success : C.teal }}/>
+              </div>
+              <div className="space-y-2">
+                {essays.map(e => (
+                  <button key={e.id} onClick={() => toggleEssay(e.id)}
+                    className="w-full flex items-start gap-3 text-left rounded-xl p-3 transition-colors"
+                    style={{ background: localProgress[e.id] ? C.paleTeal : C.bgSoft, border: `1px solid ${localProgress[e.id] ? C.teal + '50' : C.border}` }}>
+                    <div className="flex-shrink-0 w-4 h-4 mt-0.5 rounded flex items-center justify-center transition-colors"
+                      style={{ background: localProgress[e.id] ? C.teal : 'transparent', border: `1.5px solid ${localProgress[e.id] ? C.teal : C.inkFaint}` }}>
+                      {localProgress[e.id] && <Check size={10} color="white" strokeWidth={3}/>}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs leading-snug"
+                        style={{ color: localProgress[e.id] ? C.inkFaint : C.ink, textDecoration: localProgress[e.id] ? 'line-through' : 'none', opacity: localProgress[e.id] ? 0.7 : 1 }}>
+                        {e.essay_prompt}
+                      </p>
+                      {(e.word_limit || e.essay_group) && (
+                        <p className="text-xs mt-1" style={{ color: C.inkFaint }}>
+                          {e.essay_group && <span>{e.essay_group}</span>}
+                          {e.essay_group && e.word_limit && <span> · </span>}
+                          {e.word_limit && <span>{e.word_limit}w</span>}
+                          {!e.required && <span style={{ color: C.inkFaint }}> · optional</span>}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
           )}

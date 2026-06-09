@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, GripVertical } from 'lucide-react'
 import { School, Application, ApplicationStatus, ApplicationType } from '@/types/database'
 import { statusConfig } from './StatusBadge'
-import { getNotificationDate } from '@/lib/rounds'
+import { getEffectiveDeadline } from '@/lib/rounds'
 import { daysUntil, deadlineUrgency, formatDays } from '@/lib/deadline'
 import { C } from '@/lib/atlas'
 
@@ -19,7 +19,7 @@ interface Props {
   school: School
   application: Application | null
   onOpen: () => void
-  onUpdate: (fields: Partial<{ status: ApplicationStatus; supplemental_essays_done: number; application_type: ApplicationType | null }>) => void
+  onUpdate: (fields: Partial<{ status: ApplicationStatus; application_type: ApplicationType | null }>) => void
   dragProps?: DragProps
 }
 
@@ -31,32 +31,17 @@ function fmtDate(date: string | null) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function getDeadline(school: School, appType: string | null | undefined): string {
-  if (school.deadline_rolling) return 'Rolling'
-  if (appType === 'EA' || appType === 'REA') return fmtDate(school.deadline_ea) ?? '—'
-  if (appType === 'ED') return fmtDate(school.deadline_ed) ?? '—'
-  if (appType === 'RD') return fmtDate(school.deadline_rd) ?? '—'
-  return fmtDate(school.deadline_ea ?? school.deadline_ed ?? school.deadline_rd) ?? '—'
-}
-
 const ROUND_OPTS = ['EA', 'REA', 'ED', 'RD', 'Rolling'] as const
 
 export default function SchoolCard({ school, application, onOpen, onUpdate, dragProps }: Props) {
   const [status, setStatus] = useState<ApplicationStatus>(application?.status ?? 'not_started')
-  const [essaysDone, setEssaysDone] = useState(application?.supplemental_essays_done ?? 0)
   const [appType, setAppType] = useState<ApplicationType | null>(application?.application_type ?? null)
 
-  const essaysTotal = school.supplemental_essay_count
+  const essaysDone = application?.supplemental_essays_done ?? 0
+  const essaysTotal = application?.supplemental_essays_total ?? school.supplemental_essay_count
   const essayPct = essaysTotal > 0 ? Math.round((essaysDone / essaysTotal) * 100) : 0
-  const deadline = getDeadline(school, application?.application_type)
-  const rawDeadline = (() => {
-    const t = application?.application_type
-    if (school.deadline_rolling) return null
-    if (t === 'EA' || t === 'REA') return school.deadline_ea
-    if (t === 'ED') return school.deadline_ed
-    if (t === 'RD') return school.deadline_rd
-    return school.deadline_ea ?? school.deadline_ed ?? school.deadline_rd
-  })()
+  const rawDeadline = school.deadline_rolling ? null : getEffectiveDeadline(school, application, appType)
+  const deadline = school.deadline_rolling ? 'Rolling' : (fmtDate(rawDeadline) ?? '—')
   const days = daysUntil(rawDeadline)
   const st = statusConfig[status]
 
@@ -69,13 +54,6 @@ export default function SchoolCard({ school, application, onOpen, onUpdate, drag
     const newType = val === '' ? null : val as ApplicationType
     setAppType(newType)
     onUpdate({ application_type: newType })
-  }
-
-  function handleEssayDelta(delta: number) {
-    const next = Math.min(essaysTotal, Math.max(0, essaysDone + delta))
-    if (next === essaysDone) return
-    setEssaysDone(next)
-    onUpdate({ supplemental_essays_done: next })
   }
 
   return (
@@ -97,6 +75,10 @@ export default function SchoolCard({ school, application, onOpen, onUpdate, drag
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
+        {dragProps?.draggable && (
+          <GripVertical size={14} className="flex-shrink-0 mt-0.5 -ml-1"
+            style={{ color: C.inkFaint, cursor: 'grab' }}/>
+        )}
         <button onClick={onOpen} className="flex items-center gap-2 min-w-0 text-left group">
           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: st.color }}/>
           <h3 className="text-sm font-semibold leading-tight truncate transition-colors"
@@ -159,32 +141,14 @@ export default function SchoolCard({ school, application, onOpen, onUpdate, drag
         </div>
       ) : null}
 
-      {/* Essay progress */}
+      {/* Essay progress — read-only; edit via drawer */}
       {essaysTotal > 0 && (
-        <div className="space-y-1.5">
+        <button onClick={onOpen} className="w-full space-y-1.5 text-left">
           <div className="flex justify-between items-center text-xs" style={{ color: C.inkFaint }}>
             <span>Supplementals</span>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => handleEssayDelta(-1)}
-                disabled={essaysDone === 0}
-                className="w-4 h-4 rounded flex items-center justify-center transition-colors disabled:opacity-30"
-                style={{ background: C.bgSoft, color: C.inkMuted }}
-                onMouseEnter={e => (e.currentTarget.style.background = C.border)}
-                onMouseLeave={e => (e.currentTarget.style.background = C.bgSoft)}
-              >−</button>
-              <span style={{ color: essaysDone === essaysTotal ? C.success : C.inkMuted }}>
-                {essaysDone}/{essaysTotal}
-              </span>
-              <button
-                onClick={() => handleEssayDelta(1)}
-                disabled={essaysDone === essaysTotal}
-                className="w-4 h-4 rounded flex items-center justify-center transition-colors disabled:opacity-30"
-                style={{ background: C.bgSoft, color: C.inkMuted }}
-                onMouseEnter={e => (e.currentTarget.style.background = C.border)}
-                onMouseLeave={e => (e.currentTarget.style.background = C.bgSoft)}
-              >+</button>
-            </div>
+            <span style={{ color: essaysDone === essaysTotal ? C.success : C.inkMuted }}>
+              {essaysDone}/{essaysTotal}
+            </span>
           </div>
           <div className="h-1.5 rounded-full overflow-hidden" style={{ background: C.bgSoft }}>
             <div
@@ -192,7 +156,7 @@ export default function SchoolCard({ school, application, onOpen, onUpdate, drag
               style={{ width: `${essayPct}%`, background: essayPct === 100 ? C.success : C.teal }}
             />
           </div>
-        </div>
+        </button>
       )}
 
       {/* Notes */}

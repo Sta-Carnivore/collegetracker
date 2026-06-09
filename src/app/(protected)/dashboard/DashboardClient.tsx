@@ -7,6 +7,7 @@ import {
   CalendarRange, Table2, TrendingUp,
 } from 'lucide-react'
 import { C } from '@/lib/atlas'
+import { getEffectiveDeadline } from '@/lib/rounds'
 import type { Application, School, Profile, ApplicationType } from '@/types/database'
 
 interface Props {
@@ -31,11 +32,9 @@ const STATUS: Record<string, { label: string; color: string; bg: string }> = {
 const SUBMITTED_STATUSES = new Set(['submitted', 'waiting', 'deferred', 'accepted', 'rejected', 'waitlisted'])
 
 /* ── Deadline helpers ───────────────────────────────── */
-function getDeadline(school: School, appType: ApplicationType | null): string | null {
+function getDeadline(school: School, application: Application | null | undefined, appType: ApplicationType | null): string | null {
   if (school.deadline_rolling) return null
-  if (appType === 'EA' || appType === 'REA') return school.deadline_ea
-  if (appType === 'ED') return school.deadline_ed
-  return school.deadline_rd ?? school.deadline_ea ?? school.deadline_ed ?? null
+  return getEffectiveDeadline(school, application, appType)
 }
 
 function daysUntil(dateStr: string | null): number | null {
@@ -78,7 +77,7 @@ export default function DashboardClient({ userEmail, applications, schools, prof
     .flatMap(app => {
       const school = schoolMap[app.school_id]
       if (!school) return []
-      const dl = getDeadline(school, app.application_type)
+      const dl = getDeadline(school, app, app.application_type)
       const days = daysUntil(dl)
       if (!days || days <= 0 || SUBMITTED_STATUSES.has(app.status)) return []
       return [{ app, school, dl: dl!, days }]
@@ -249,7 +248,7 @@ export default function DashboardClient({ userEmail, applications, schools, prof
           </div>
           {recent.map(({ app, school }, i) => {
             const st = STATUS[app.status] ?? STATUS.not_started
-            const dl = getDeadline(school, app.application_type)
+            const dl = getDeadline(school, app, app.application_type)
             const days = daysUntil(dl)
             return (
               <div key={app.id}

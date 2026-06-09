@@ -39,7 +39,9 @@ export async function POST(request: NextRequest) {
     }).eq('id', user.id)
   }
 
-  const origin = request.headers.get('origin') ?? 'http://localhost:3000'
+  // Prefer the server-configured site URL; only fall back to the (client-controlled)
+  // Origin header in dev so a forged Origin can't redirect the post-payment user.
+  const origin = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || 'http://localhost:3000'
 
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
