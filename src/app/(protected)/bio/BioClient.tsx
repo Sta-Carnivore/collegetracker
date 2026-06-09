@@ -1025,11 +1025,6 @@ export default function BioClient({ profileName, resumeItems, hasResume, prefill
                 Quality {score}/100 {score >= 85 ? '— looks great' : '— repairs applied'}
               </span>
             )}
-            {metrics && (
-              <span style={{ color: C.inkFaint }}>
-                · {metrics.generation_duration_seconds}s · ~${metrics.estimated_cost_usd.toFixed(2)} · {metrics.token_cost.total_tokens.toLocaleString()} tokens
-              </span>
-            )}
           </div>
 
           {/* iframe preview */}
