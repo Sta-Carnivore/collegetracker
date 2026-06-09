@@ -158,7 +158,11 @@ function LoginPageInner() {
       })
       if (error) { setMessage(error.message); setIsError(true) }
       else if (data.session) { window.location.href = '/dashboard' }
-      else setMessage('Check your email for a confirmation link.')
+      else {
+        const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
+        if (!signInErr) { window.location.href = '/dashboard' }
+        else setMessage('Check your email for a confirmation link.')
+      }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) { setMessage(error.message); setIsError(true) }
