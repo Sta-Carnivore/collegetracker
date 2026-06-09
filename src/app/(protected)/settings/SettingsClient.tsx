@@ -558,7 +558,8 @@ function SettingsInner({
   // Fire the success toast ONCE on arrival (not in the render body — that re-fired
   // it on every re-render and stacked the toasts into a full-height column).
   useEffect(() => {
-    if (success) toast('You\'re now Pro! All features unlocked.')
+    if (success === 'bio') toast('Bio Website unlocked! You have 3 generations to use.')
+    else if (success) toast('You\'re now Pro! All features unlocked.')
   }, [success, toast])
 
   const isEmailProvider = provider === 'email'

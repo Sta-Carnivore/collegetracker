@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
     mode,
-    success_url: `${origin}/settings?success=true`,
+    success_url: `${origin}/settings?success=${period === 'bio_onetime' ? 'bio' : 'pro'}`,
     cancel_url: `${origin}/settings?canceled=true`,
     metadata: {
       supabase_user_id: user.id,
