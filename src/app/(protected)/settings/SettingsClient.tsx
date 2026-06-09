@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Check, Loader2, ExternalLink, Crown, Zap, Eye, EyeOff, AlertTriangle, X } from 'lucide-react'
 import { C } from '@/lib/atlas'
@@ -69,11 +69,9 @@ const POPULAR_MAJORS = [
 ]
 
 const PRO_FEATURES = [
-  'School Recommender',
-  'Application Strategy & Planner',
-  'Bio Website Generator (3/month)',
-  'Unlimited AI Resume parsing',
-  'Email deadline reminders',
+  'Bio Website Generator (5/month)',
+  'AI Resume parsing (10/month)',
+  'Email deadline reminders (coming soon)',
 ]
 
 /* ── Profile section ──────────────────────────────────── */
@@ -353,7 +351,7 @@ function PlanSection({ isPro, subscriptionPeriod, resumeCallsUsed }: {
               {subscriptionPeriod === 'quarterly' ? '$50 / 3 months' : '$20 / month'}
             </span>
           </div>
-          <p style={{ color: C.inkFaint, fontSize: 12 }}>All AI features unlocked · Bio site: 3 generations/month</p>
+          <p style={{ color: C.inkFaint, fontSize: 12 }}>All AI features unlocked · Bio site: 5 generations/month</p>
           <button onClick={handlePortal} disabled={loading === 'portal'}
             className="flex items-center gap-2 text-sm rounded-xl px-4 py-2 transition-all disabled:opacity-50"
             style={{ color: C.inkMuted, border: `1px solid ${C.border}`, background: C.bgSoft }}
@@ -368,7 +366,7 @@ function PlanSection({ isPro, subscriptionPeriod, resumeCallsUsed }: {
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold px-3 py-1 rounded-full"
               style={{ background: C.bgSoft, color: C.inkMuted, border: `1px solid ${C.border}` }}>Free</span>
-            <span style={{ color: C.inkMuted, fontSize: 13 }}>AI Resume: {resumeCallsUsed}/10 uses this month</span>
+            <span style={{ color: C.inkMuted, fontSize: 13 }}>AI Resume: {resumeCallsUsed}/1 use this month</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl p-4 space-y-3" style={{ border: `1px solid ${C.border}`, background: C.bgSoft }}>
@@ -557,7 +555,12 @@ function SettingsInner({
   const success  = searchParams.get('success')
   const canceled = searchParams.get('canceled')
 
-  if (success) toast('You\'re now Pro! All features unlocked.')
+  // Fire the success toast ONCE on arrival (not in the render body — that re-fired
+  // it on every re-render and stacked the toasts into a full-height column).
+  useEffect(() => {
+    if (success) toast('You\'re now Pro! All features unlocked.')
+  }, [success, toast])
+
   const isEmailProvider = provider === 'email'
 
   return (

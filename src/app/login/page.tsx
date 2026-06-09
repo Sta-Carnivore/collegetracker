@@ -268,11 +268,8 @@ function LoginPageInner() {
               <div>
                 <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
                   <label style={{ color:C.inkMuted, fontSize:12, fontWeight:500 }}>Password</label>
-                  {!isSignUp && (
-                    <button type="button" style={{ color:C.teal, fontSize:11, background:'none', border:'none', cursor:'pointer' }}>
-                      Forgot password?
-                    </button>
-                  )}
+                  {/* Password-reset flow not built yet — hidden until it is, so this
+                      isn't a dead button. Re-enable with supabase.auth.resetPasswordForEmail. */}
                 </div>
                 <input
                   type="password" value={password} onChange={e => setPassword(e.target.value)} required

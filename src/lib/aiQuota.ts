@@ -30,8 +30,8 @@ const FEATURES: Record<AiFeature, FeatureConfig> = {
     periodCol: 'resume_period_start',
     lockCol: 'resume_active_job',
     lockTsCol: 'resume_last_job_at',
-    freeLimit: 3,
-    proLimit: 20,
+    freeLimit: 1,
+    proLimit: 10,
     staleMinutes: 5,
   },
   advisor: {
@@ -145,7 +145,7 @@ export async function incrementAiUsage(
 export function aiLimitMessage(q: AiQuotaState): string {
   if (q.feature === 'resume') {
     return q.tier === 'free'
-      ? `You've used all ${q.limit} free resume analyses this month. Upgrade to Pro for 20/month.`
+      ? `You've used all ${q.limit} free resume analyses this month. Upgrade to Pro for 10/month.`
       : `You've used all ${q.limit} resume analyses this month.`
   }
   // advisor

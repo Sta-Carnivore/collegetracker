@@ -85,7 +85,7 @@ export default function ResumeClient({ initialParsed, callsUsed, isPro }: Props)
   const [used, setUsed] = useState(callsUsed)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const monthlyLimit = isPro ? 20 : 3
+  const monthlyLimit = isPro ? 10 : 1
   const limitReached = used >= monthlyLimit
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {

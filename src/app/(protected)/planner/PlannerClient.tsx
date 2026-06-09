@@ -6,6 +6,7 @@ import { CalendarClock, Check, X, AlertTriangle, FileText, Bell, BadgeCheck, Inb
 import { C } from '@/lib/atlas'
 import { useToast } from '@/components/ui/Toast'
 import type { PlannerEvent } from '@/lib/reminders'
+import { getReminderSeverity, sortReminderEventsByPriority } from '@/lib/reminderSeverity'
 
 interface EssayItem {
   id: string; prompt: string; wordLimit: number | null
@@ -71,13 +72,6 @@ function overrideField(e: PlannerEvent): string {
   if (e.kind === 'deadline') return ea ? 'deadline_ea' : ed ? 'deadline_ed' : 'deadline_rd'
   return ea ? 'notification_ea' : ed ? 'notification_ed' : 'notification_date'
 }
-function urgency(days: number): string {
-  if (days < 0) return C.inkFaint
-  if (days <= 7) return C.danger
-  if (days <= 30) return C.gold
-  return C.teal
-}
-
 const cardStyle: React.CSSProperties = {
   background: C.card, border: `1px solid ${C.border}`,
   borderRadius: 16, boxShadow: '0 2px 10px rgba(38,63,73,0.06)',
@@ -113,8 +107,12 @@ export default function PlannerClient({ events, essaysBySchool, dismissedKeys, h
 
   const hasVerifyData = allEvents.some(e => e.sourceYear) || essaysBySchool.some(g => g.essays.some(e => e.sourceYear))
 
+  // Ordered by risk weight (severity score) first, then soonest due date — so the
+  // most consequential deadline (e.g. an ED) outranks a sooner-but-lower-stakes one.
   const upcoming = useMemo(
-    () => allEvents.filter(e => e.kind === 'deadline' && e.daysUntil >= 0 && e.daysUntil <= 60 && !dismissed.has(e.key)),
+    () => sortReminderEventsByPriority(
+      allEvents.filter(e => e.kind === 'deadline' && e.daysUntil >= 0 && e.daysUntil <= 60 && !dismissed.has(e.key)),
+    ),
     [allEvents, dismissed],
   )
   // Dismissed-but-still-upcoming events (derived or custom), offered for restore.
@@ -376,7 +374,7 @@ export default function PlannerClient({ events, essaysBySchool, dismissedKeys, h
                 {upcoming.map(e => editingKey === e.key ? renderEditor(e) : (
                   <div key={e.key} className="flex items-center gap-3 rounded-xl px-3.5 py-3"
                     style={{ background: C.bgSoft, border: `1px solid ${C.border}` }}>
-                    <div className="w-1.5 h-9 rounded-full flex-shrink-0" style={{ background: urgency(e.daysUntil) }}/>
+                    <div className="w-1.5 h-9 rounded-full flex-shrink-0" style={{ background: getReminderSeverity(e).color }}/>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate flex items-center gap-1.5" style={{ color: C.inkStrong }}>
                         {e.custom && <Sparkles size={12} style={{ color: C.teal, flexShrink: 0 }}/>}
@@ -387,7 +385,7 @@ export default function PlannerClient({ events, essaysBySchool, dismissedKeys, h
                         {fmtDate(e.dueAt)}, {fmtTime(e.dueAt)} {e.custom ? '· custom' : e.sourceYear ? `· ${e.sourceYear}` : '· your entry'}
                       </p>
                     </div>
-                    <span className="text-xs font-semibold flex-shrink-0" style={{ color: urgency(e.daysUntil) }}>
+                    <span className="text-xs font-semibold flex-shrink-0" style={{ color: getReminderSeverity(e).color }}>
                       {whenLabel(e.daysUntil)}
                     </span>
                     <button onClick={() => startEdit(e)} title="Edit"

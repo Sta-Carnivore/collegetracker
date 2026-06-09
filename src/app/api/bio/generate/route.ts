@@ -554,11 +554,11 @@ function injectCssOverrides(html: string, css: string): string {
 const REFINE_PRESETS: Record<string, { mode: 'css_tweak' | 'motif_tweak'; instruction: string }> = {
   stronger_curve: {
     mode: 'motif_tweak',
-    instruction: 'Make the proof-board growth curve much stronger and more convincing: a thicker, hand-drawn rough.js stroke with clear axes, and 3-4 evidence points that visibly sit ON the curve with short matched labels. It must read as hand-derived, never a clean default chart line.',
+    instruction: 'Make the proof-board growth curve much stronger and more convincing, using ONLY inline SVG + CSS (no JavaScript): a thicker hand-drawn path with an SVG feTurbulence/feDisplacementMap "rough" filter (filter="url(#rough)") on the curve and axes, drawn in via a stroke-dashoffset CSS @keyframes, plus 3-4 evidence <circle> points (CSS scale/opacity pop-in) that visibly sit ON the curve with short matched labels. It must read as hand-derived, never a clean default chart line.',
   },
   more_handdrawn: {
     mode: 'motif_tweak',
-    instruction: 'Make the hero motif look more hand-drawn and tactile: increase rough.js roughness/bowing, add a faint second offset pass over the curve, and keep strokes slightly irregular. Remove any mechanically perfect line.',
+    instruction: 'Make the hero motif look more hand-drawn and tactile, using ONLY inline SVG + CSS (no JavaScript): increase the SVG feTurbulence roughness (raise baseFrequency / displacement scale) on the curve and axes, add a faint second offset copy of the curve path for a redrawn-by-hand feel, and keep strokes slightly irregular with stroke-linecap/linejoin round. Remove any mechanically perfect line.',
   },
   warmer: {
     mode: 'css_tweak',

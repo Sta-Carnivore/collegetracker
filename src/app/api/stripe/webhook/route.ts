@@ -27,9 +27,14 @@ export async function POST(request: NextRequest) {
     const period = session.metadata?.period
 
     if (userId && period === 'bio_onetime') {
-      // One-time $15 Bio Website purchase.
+      // One-time $15 Bio Website purchase — RE-PURCHASABLE. Each purchase grants a
+      // fresh batch (the bio tier's 3 generations / 5 AI refines) by resetting the
+      // lifetime counters to 0. Idempotent: a duplicate Stripe delivery resets to 0
+      // again, which is a no-op, so it can never double-grant.
       await supabaseAdmin.from('users').update({
         has_bio_purchase: true,
+        bio_generates_used: 0,
+        bio_refines_used: 0,
       }).eq('id', userId)
     } else if (userId && period) {
       // Pro subscription (monthly or quarterly).
