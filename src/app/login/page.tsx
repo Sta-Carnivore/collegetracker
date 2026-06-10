@@ -133,13 +133,14 @@ function RouteIllustration() {
 /* ── Login / Signup form ─────────────────────────────────────── */
 function LoginPageInner() {
   const searchParams = useSearchParams()
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
-  const [isSignUp, setIsSignUp] = useState(searchParams.get('mode') === 'signup')
-  const [loading,  setLoading]  = useState(false)
-  const [message,  setMessage]  = useState('')
-  const [isError,  setIsError]  = useState(false)
-  const [ready,    setReady]    = useState(false)
+  const [email,       setEmail]       = useState('')
+  const [password,    setPassword]    = useState('')
+  const [isSignUp,    setIsSignUp]    = useState(searchParams.get('mode') === 'signup')
+  const [isForgot,    setIsForgot]    = useState(false)
+  const [loading,     setLoading]     = useState(false)
+  const [message,     setMessage]     = useState('')
+  const [isError,     setIsError]     = useState(false)
+  const [ready,       setReady]       = useState(false)
 
   const supabase = createClient()
 
@@ -168,6 +169,19 @@ function LoginPageInner() {
       if (error) { setMessage(error.message); setIsError(true) }
       else window.location.href = '/dashboard'
     }
+    setLoading(false)
+  }
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setMessage('')
+    setIsError(false)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+    })
+    if (error) { setMessage(error.message); setIsError(true) }
+    else setMessage('Check your email for a password reset link.')
     setLoading(false)
   }
 
@@ -228,16 +242,18 @@ function LoginPageInner() {
 
             {/* Heading */}
             <h1 style={{ fontFamily: 'var(--font-serif)', color: C.inkStrong, fontWeight: 600, fontSize: 22, marginBottom: 6 }}>
-              {isSignUp ? 'Create your account' : 'Welcome back'}
+              {isForgot ? 'Reset your password' : isSignUp ? 'Create your account' : 'Welcome back'}
             </h1>
             <p style={{ color: C.inkMuted, fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
-              {isSignUp
-                ? 'Start tracking your college applications for free.'
-                : 'Sign in to continue planning your application season.'}
+              {isForgot
+                ? 'Enter your email and we\'ll send you a reset link.'
+                : isSignUp
+                  ? 'Start tracking your college applications for free.'
+                  : 'Sign in to continue planning your application season.'}
             </p>
 
-            {/* Google */}
-            <button onClick={handleGoogleAuth}
+            {/* Google — hidden on forgot password screen */}
+            {!isForgot && <button onClick={handleGoogleAuth}
               className="w-full flex items-center justify-center gap-2.5 rounded-[10px] text-sm font-medium transition-all duration-200"
               style={{ padding: '10px 16px', background: C.bgSoft, border: `1.5px solid ${C.border}`, color: C.inkStrong }}
               onMouseEnter={e => { (e.currentTarget).style.borderColor = C.inkMuted; (e.currentTarget).style.background = C.bg }}
@@ -249,16 +265,51 @@ function LoginPageInner() {
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
               Continue with Google
-            </button>
+            </button>}
 
-            {/* Divider */}
-            <div className="flex items-center gap-3 my-5">
+            {/* Divider — hidden on forgot password screen */}
+            {!isForgot && <div className="flex items-center gap-3 my-5">
               <div className="flex-1 h-px" style={{ background: C.border }}/>
               <span style={{ color: C.inkFaint, fontSize: 11 }}>or</span>
               <div className="flex-1 h-px" style={{ background: C.border }}/>
-            </div>
+            </div>}
 
-            {/* Email form */}
+            {/* Forgot password form */}
+            {isForgot ? (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div>
+                  <label style={{ display:'block', color:C.inkMuted, fontSize:12, fontWeight:500, marginBottom:6 }}>Email</label>
+                  <input
+                    type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                    placeholder="you@example.com"
+                    style={inputStyle}
+                    onFocus={e => (e.target.style.borderColor = C.teal)}
+                    onBlur={e => (e.target.style.borderColor = C.border)}
+                  />
+                </div>
+                {message && (
+                  <div className="rounded-xl px-4 py-3 text-sm" style={{
+                    background: isError ? '#F5DDD9' : C.paleTeal,
+                    color: isError ? C.danger : C.teal,
+                    border: `1px solid ${isError ? C.danger+'33' : C.teal+'33'}`,
+                    fontSize: 13,
+                  }}>{message}</div>
+                )}
+                <button type="submit" disabled={loading}
+                  className="w-full rounded-[10px] text-sm font-semibold transition-all duration-200"
+                  style={{ padding: '11px 16px', background: C.teal, color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
+                  onMouseEnter={e => { if (!loading) (e.currentTarget).style.background = '#267970' }}
+                  onMouseLeave={e => { (e.currentTarget).style.background = C.teal }}>
+                  {loading ? 'Please wait…' : 'Send reset link'}
+                </button>
+                <p style={{ textAlign: 'center', color: C.inkFaint, fontSize: 13 }}>
+                  <button onClick={() => { setIsForgot(false); setMessage('') }} type="button"
+                    style={{ color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
+                    Back to sign in
+                  </button>
+                </p>
+              </form>
+            ) : (
             <form onSubmit={handleEmailAuth} className="space-y-4">
               <div>
                 <label style={{ display:'block', color:C.inkMuted, fontSize:12, fontWeight:500, marginBottom:6 }}>Email</label>
@@ -273,8 +324,14 @@ function LoginPageInner() {
               <div>
                 <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
                   <label style={{ color:C.inkMuted, fontSize:12, fontWeight:500 }}>Password</label>
-                  {/* Password-reset flow not built yet — hidden until it is, so this
-                      isn't a dead button. Re-enable with supabase.auth.resetPasswordForEmail. */}
+                  {!isSignUp && (
+                    <button type="button" onClick={() => { setIsForgot(true); setMessage('') }}
+                      style={{ color: C.inkFaint, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}
+                      onMouseEnter={e => (e.currentTarget.style.color = C.teal)}
+                      onMouseLeave={e => (e.currentTarget.style.color = C.inkFaint)}>
+                      Forgot password?
+                    </button>
+                  )}
                 </div>
                 <input
                   type="password" value={password} onChange={e => setPassword(e.target.value)} required
@@ -306,15 +363,18 @@ function LoginPageInner() {
                 {loading ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}
               </button>
             </form>
+            )}
 
             {/* Toggle */}
-            <p style={{ textAlign: 'center', color: C.inkFaint, fontSize: 13, marginTop: 20 }}>
-              {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-              <button onClick={() => { setIsSignUp(!isSignUp); setMessage('') }}
-                style={{ color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
-                {isSignUp ? 'Sign in' : 'Sign up free'}
-              </button>
-            </p>
+            {!isForgot && (
+              <p style={{ textAlign: 'center', color: C.inkFaint, fontSize: 13, marginTop: 20 }}>
+                {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+                <button onClick={() => { setIsSignUp(!isSignUp); setMessage('') }}
+                  style={{ color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
+                  {isSignUp ? 'Sign in' : 'Sign up free'}
+                </button>
+              </p>
+            )}
           </div>
 
           {/* Back to home */}
