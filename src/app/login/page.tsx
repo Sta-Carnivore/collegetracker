@@ -136,13 +136,14 @@ function LoginPageInner() {
   const [email,       setEmail]       = useState('')
   const [password,    setPassword]    = useState('')
   const [isSignUp,    setIsSignUp]    = useState(searchParams.get('mode') === 'signup')
-  const [forgotStep,  setForgotStep]  = useState<'off' | 'email' | 'code' | 'newpass'>('off')
-  const [otpCode,     setOtpCode]     = useState('')
-  const [newPass,     setNewPass]     = useState('')
-  const [loading,     setLoading]     = useState(false)
-  const [message,     setMessage]     = useState('')
-  const [isError,     setIsError]     = useState(false)
-  const [ready,       setReady]       = useState(false)
+  const [forgotStep,      setForgotStep]      = useState<'off' | 'email' | 'code' | 'newpass'>('off')
+  const [signupOtpPending, setSignupOtpPending] = useState(false)
+  const [otpCode,          setOtpCode]          = useState('')
+  const [newPass,          setNewPass]          = useState('')
+  const [loading,          setLoading]          = useState(false)
+  const [message,          setMessage]          = useState('')
+  const [isError,          setIsError]          = useState(false)
+  const [ready,            setReady]            = useState(false)
 
   const isForgot = forgotStep !== 'off'
   const supabase = createClient()
@@ -158,17 +159,10 @@ function LoginPageInner() {
     setIsError(false)
 
     if (isSignUp) {
-      const { data, error } = await supabase.auth.signUp({
-        email, password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      })
+      const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) { setMessage(error.message); setIsError(true) }
       else if (data.session) { window.location.href = '/dashboard' }
-      else {
-        const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
-        if (!signInErr) { window.location.href = '/dashboard' }
-        else setMessage('Check your email for a confirmation link.')
-      }
+      else { setSignupOtpPending(true); setMessage('') }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) { setMessage(error.message); setIsError(true) }
@@ -200,6 +194,15 @@ function LoginPageInner() {
     if (newPass.length < 8) { setMessage('Password must be at least 8 characters.'); setIsError(true); return }
     setLoading(true); setMessage(''); setIsError(false)
     const { error } = await supabase.auth.updateUser({ password: newPass })
+    if (error) { setMessage(error.message); setIsError(true) }
+    else { window.location.href = '/dashboard' }
+    setLoading(false)
+  }
+
+  async function handleVerifySignupOtp(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true); setMessage(''); setIsError(false)
+    const { error } = await supabase.auth.verifyOtp({ email, token: otpCode, type: 'signup' })
     if (error) { setMessage(error.message); setIsError(true) }
     else { window.location.href = '/dashboard' }
     setLoading(false)
@@ -262,18 +265,24 @@ function LoginPageInner() {
 
             {/* Heading */}
             <h1 style={{ fontFamily: 'var(--font-serif)', color: C.inkStrong, fontWeight: 600, fontSize: 22, marginBottom: 6 }}>
-              {forgotStep === 'code' ? 'Enter your code' : forgotStep === 'newpass' ? 'Set new password' : isForgot ? 'Reset your password' : isSignUp ? 'Create your account' : 'Welcome back'}
+              {signupOtpPending ? 'Check your email'
+                : forgotStep === 'code' ? 'Enter your code'
+                : forgotStep === 'newpass' ? 'Set new password'
+                : isForgot ? 'Reset your password'
+                : isSignUp ? 'Create your account'
+                : 'Welcome back'}
             </h1>
             <p style={{ color: C.inkMuted, fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
-              {forgotStep === 'code' ? `We sent a 6-digit code to ${email}.`
+              {signupOtpPending ? `We sent a 6-digit code to ${email}. Enter it below to confirm your account.`
+                : forgotStep === 'code' ? `We sent a 6-digit code to ${email}.`
                 : forgotStep === 'newpass' ? 'Choose a new password for your account.'
                 : isForgot ? 'Enter your email and we\'ll send a 6-digit code.'
                 : isSignUp ? 'Start tracking your college applications for free.'
                 : 'Sign in to continue planning your application season.'}
             </p>
 
-            {/* Google — hidden on forgot password screen */}
-            {!isForgot && <button onClick={handleGoogleAuth}
+            {/* Google — hidden on forgot/signup-otp screens */}
+            {!isForgot && !signupOtpPending && <button onClick={handleGoogleAuth}
               className="w-full flex items-center justify-center gap-2.5 rounded-[10px] text-sm font-medium transition-all duration-200"
               style={{ padding: '10px 16px', background: C.bgSoft, border: `1.5px solid ${C.border}`, color: C.inkStrong }}
               onMouseEnter={e => { (e.currentTarget).style.borderColor = C.inkMuted; (e.currentTarget).style.background = C.bg }}
@@ -287,15 +296,39 @@ function LoginPageInner() {
               Continue with Google
             </button>}
 
-            {/* Divider — hidden on forgot password screen */}
-            {!isForgot && <div className="flex items-center gap-3 my-5">
+            {/* Divider — hidden on forgot/signup-otp screens */}
+            {!isForgot && !signupOtpPending && <div className="flex items-center gap-3 my-5">
               <div className="flex-1 h-px" style={{ background: C.border }}/>
               <span style={{ color: C.inkFaint, fontSize: 11 }}>or</span>
               <div className="flex-1 h-px" style={{ background: C.border }}/>
             </div>}
 
-            {/* Forgot password — 3-step OTP flow */}
-            {forgotStep === 'email' ? (
+            {/* Signup OTP verification */}
+            {signupOtpPending ? (
+              <form onSubmit={handleVerifySignupOtp} className="space-y-4">
+                <div>
+                  <label style={{ display:'block', color:C.inkMuted, fontSize:12, fontWeight:500, marginBottom:6 }}>6-digit code</label>
+                  <input type="text" value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required
+                    placeholder="123456" maxLength={6} inputMode="numeric"
+                    style={{ ...inputStyle, letterSpacing: '0.2em', fontSize: 18, textAlign: 'center' }}
+                    onFocus={e => (e.target.style.borderColor = C.teal)}
+                    onBlur={e => (e.target.style.borderColor = C.border)}/>
+                </div>
+                {message && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: isError ? '#F5DDD9' : C.paleTeal, color: isError ? C.danger : C.teal, border: `1px solid ${isError ? C.danger+'33' : C.teal+'33'}`, fontSize: 13 }}>{message}</div>}
+                <button type="submit" disabled={loading || otpCode.length < 6} className="w-full rounded-[10px] text-sm font-semibold transition-all duration-200"
+                  style={{ padding: '11px 16px', background: C.teal, color: 'white', border: 'none', cursor: (loading || otpCode.length < 6) ? 'not-allowed' : 'pointer', opacity: (loading || otpCode.length < 6) ? 0.7 : 1 }}
+                  onMouseEnter={e => { if (!loading && otpCode.length === 6) (e.currentTarget as HTMLElement).style.background = '#267970' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.teal }}>
+                  {loading ? 'Verifying…' : 'Confirm account'}
+                </button>
+                <p style={{ textAlign: 'center', color: C.inkFaint, fontSize: 13 }}>
+                  <button onClick={() => { setSignupOtpPending(false); setOtpCode(''); setMessage('') }} type="button"
+                    style={{ color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
+                    Back
+                  </button>
+                </p>
+              </form>
+            ) : forgotStep === 'email' ? (
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
                   <label style={{ display:'block', color:C.inkMuted, fontSize:12, fontWeight:500, marginBottom:6 }}>Email</label>
@@ -410,7 +443,7 @@ function LoginPageInner() {
             )}
 
             {/* Toggle */}
-            {!isForgot && (
+            {!isForgot && !signupOtpPending && (
               <p style={{ textAlign: 'center', color: C.inkFaint, fontSize: 13, marginTop: 20 }}>
                 {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
                 <button onClick={() => { setIsSignUp(!isSignUp); setMessage('') }}
