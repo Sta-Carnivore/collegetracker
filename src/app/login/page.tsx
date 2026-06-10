@@ -136,15 +136,20 @@ function LoginPageInner() {
   const [email,       setEmail]       = useState('')
   const [password,    setPassword]    = useState('')
   const [isSignUp,    setIsSignUp]    = useState(searchParams.get('mode') === 'signup')
-  const [isForgot,    setIsForgot]    = useState(false)
+  const [forgotStep,  setForgotStep]  = useState<'off' | 'email' | 'code' | 'newpass'>('off')
+  const [otpCode,     setOtpCode]     = useState('')
+  const [newPass,     setNewPass]     = useState('')
   const [loading,     setLoading]     = useState(false)
   const [message,     setMessage]     = useState('')
   const [isError,     setIsError]     = useState(false)
   const [ready,       setReady]       = useState(false)
 
+  const isForgot = forgotStep !== 'off'
   const supabase = createClient()
 
   useEffect(() => { const t = setTimeout(() => setReady(true), 60); return () => clearTimeout(t) }, [])
+
+  function resetForgot() { setForgotStep('off'); setMessage(''); setOtpCode(''); setNewPass('') }
 
   async function handleEmailAuth(e: React.FormEvent) {
     e.preventDefault()
@@ -172,16 +177,31 @@ function LoginPageInner() {
     setLoading(false)
   }
 
-  async function handleForgotPassword(e: React.FormEvent) {
+  async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault()
-    setLoading(true)
-    setMessage('')
-    setIsError(false)
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
-    })
+    setLoading(true); setMessage(''); setIsError(false)
+    const { error } = await supabase.auth.resetPasswordForEmail(email)
     if (error) { setMessage(error.message); setIsError(true) }
-    else setMessage('Check your email for a password reset link.')
+    else { setForgotStep('code'); setMessage('A 6-digit code was sent to your email.') }
+    setLoading(false)
+  }
+
+  async function handleVerifyOtp(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true); setMessage(''); setIsError(false)
+    const { error } = await supabase.auth.verifyOtp({ email, token: otpCode, type: 'recovery' })
+    if (error) { setMessage(error.message); setIsError(true) }
+    else { setForgotStep('newpass'); setMessage('') }
+    setLoading(false)
+  }
+
+  async function handleSetNewPass(e: React.FormEvent) {
+    e.preventDefault()
+    if (newPass.length < 8) { setMessage('Password must be at least 8 characters.'); setIsError(true); return }
+    setLoading(true); setMessage(''); setIsError(false)
+    const { error } = await supabase.auth.updateUser({ password: newPass })
+    if (error) { setMessage(error.message); setIsError(true) }
+    else { window.location.href = '/dashboard' }
     setLoading(false)
   }
 
@@ -242,14 +262,14 @@ function LoginPageInner() {
 
             {/* Heading */}
             <h1 style={{ fontFamily: 'var(--font-serif)', color: C.inkStrong, fontWeight: 600, fontSize: 22, marginBottom: 6 }}>
-              {isForgot ? 'Reset your password' : isSignUp ? 'Create your account' : 'Welcome back'}
+              {forgotStep === 'code' ? 'Enter your code' : forgotStep === 'newpass' ? 'Set new password' : isForgot ? 'Reset your password' : isSignUp ? 'Create your account' : 'Welcome back'}
             </h1>
             <p style={{ color: C.inkMuted, fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
-              {isForgot
-                ? 'Enter your email and we\'ll send you a reset link.'
-                : isSignUp
-                  ? 'Start tracking your college applications for free.'
-                  : 'Sign in to continue planning your application season.'}
+              {forgotStep === 'code' ? `We sent a 6-digit code to ${email}.`
+                : forgotStep === 'newpass' ? 'Choose a new password for your account.'
+                : isForgot ? 'Enter your email and we\'ll send a 6-digit code.'
+                : isSignUp ? 'Start tracking your college applications for free.'
+                : 'Sign in to continue planning your application season.'}
             </p>
 
             {/* Google — hidden on forgot password screen */}
@@ -274,40 +294,64 @@ function LoginPageInner() {
               <div className="flex-1 h-px" style={{ background: C.border }}/>
             </div>}
 
-            {/* Forgot password form */}
-            {isForgot ? (
-              <form onSubmit={handleForgotPassword} className="space-y-4">
+            {/* Forgot password — 3-step OTP flow */}
+            {forgotStep === 'email' ? (
+              <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
                   <label style={{ display:'block', color:C.inkMuted, fontSize:12, fontWeight:500, marginBottom:6 }}>Email</label>
-                  <input
-                    type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                    placeholder="you@example.com"
-                    style={inputStyle}
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                    placeholder="you@example.com" style={inputStyle}
                     onFocus={e => (e.target.style.borderColor = C.teal)}
-                    onBlur={e => (e.target.style.borderColor = C.border)}
-                  />
+                    onBlur={e => (e.target.style.borderColor = C.border)}/>
                 </div>
-                {message && (
-                  <div className="rounded-xl px-4 py-3 text-sm" style={{
-                    background: isError ? '#F5DDD9' : C.paleTeal,
-                    color: isError ? C.danger : C.teal,
-                    border: `1px solid ${isError ? C.danger+'33' : C.teal+'33'}`,
-                    fontSize: 13,
-                  }}>{message}</div>
-                )}
-                <button type="submit" disabled={loading}
-                  className="w-full rounded-[10px] text-sm font-semibold transition-all duration-200"
+                {message && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: isError ? '#F5DDD9' : C.paleTeal, color: isError ? C.danger : C.teal, border: `1px solid ${isError ? C.danger+'33' : C.teal+'33'}`, fontSize: 13 }}>{message}</div>}
+                <button type="submit" disabled={loading} className="w-full rounded-[10px] text-sm font-semibold transition-all duration-200"
                   style={{ padding: '11px 16px', background: C.teal, color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
-                  onMouseEnter={e => { if (!loading) (e.currentTarget).style.background = '#267970' }}
-                  onMouseLeave={e => { (e.currentTarget).style.background = C.teal }}>
-                  {loading ? 'Please wait…' : 'Send reset link'}
+                  onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLElement).style.background = '#267970' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.teal }}>
+                  {loading ? 'Please wait…' : 'Send code'}
                 </button>
                 <p style={{ textAlign: 'center', color: C.inkFaint, fontSize: 13 }}>
-                  <button onClick={() => { setIsForgot(false); setMessage('') }} type="button"
-                    style={{ color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
-                    Back to sign in
-                  </button>
+                  <button onClick={resetForgot} type="button" style={{ color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Back to sign in</button>
                 </p>
+              </form>
+            ) : forgotStep === 'code' ? (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <div>
+                  <label style={{ display:'block', color:C.inkMuted, fontSize:12, fontWeight:500, marginBottom:6 }}>6-digit code</label>
+                  <input type="text" value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required
+                    placeholder="123456" maxLength={6} inputMode="numeric"
+                    style={{ ...inputStyle, letterSpacing: '0.2em', fontSize: 18, textAlign: 'center' }}
+                    onFocus={e => (e.target.style.borderColor = C.teal)}
+                    onBlur={e => (e.target.style.borderColor = C.border)}/>
+                </div>
+                {message && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: isError ? '#F5DDD9' : C.paleTeal, color: isError ? C.danger : C.teal, border: `1px solid ${isError ? C.danger+'33' : C.teal+'33'}`, fontSize: 13 }}>{message}</div>}
+                <button type="submit" disabled={loading || otpCode.length < 6} className="w-full rounded-[10px] text-sm font-semibold transition-all duration-200"
+                  style={{ padding: '11px 16px', background: C.teal, color: 'white', border: 'none', cursor: (loading || otpCode.length < 6) ? 'not-allowed' : 'pointer', opacity: (loading || otpCode.length < 6) ? 0.7 : 1 }}
+                  onMouseEnter={e => { if (!loading && otpCode.length === 6) (e.currentTarget as HTMLElement).style.background = '#267970' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.teal }}>
+                  {loading ? 'Verifying…' : 'Verify code'}
+                </button>
+                <p style={{ textAlign: 'center', color: C.inkFaint, fontSize: 13 }}>
+                  <button onClick={() => setForgotStep('email')} type="button" style={{ color: C.teal, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>Resend code</button>
+                </p>
+              </form>
+            ) : forgotStep === 'newpass' ? (
+              <form onSubmit={handleSetNewPass} className="space-y-4">
+                <div>
+                  <label style={{ display:'block', color:C.inkMuted, fontSize:12, fontWeight:500, marginBottom:6 }}>New password</label>
+                  <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} required
+                    placeholder="At least 8 characters" style={inputStyle}
+                    onFocus={e => (e.target.style.borderColor = C.teal)}
+                    onBlur={e => (e.target.style.borderColor = C.border)}/>
+                </div>
+                {message && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: isError ? '#F5DDD9' : C.paleTeal, color: isError ? C.danger : C.teal, border: `1px solid ${isError ? C.danger+'33' : C.teal+'33'}`, fontSize: 13 }}>{message}</div>}
+                <button type="submit" disabled={loading} className="w-full rounded-[10px] text-sm font-semibold transition-all duration-200"
+                  style={{ padding: '11px 16px', background: C.teal, color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
+                  onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLElement).style.background = '#267970' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.teal }}>
+                  {loading ? 'Updating…' : 'Update password'}
+                </button>
               </form>
             ) : (
             <form onSubmit={handleEmailAuth} className="space-y-4">
@@ -325,7 +369,7 @@ function LoginPageInner() {
                 <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
                   <label style={{ color:C.inkMuted, fontSize:12, fontWeight:500 }}>Password</label>
                   {!isSignUp && (
-                    <button type="button" onClick={() => { setIsForgot(true); setMessage('') }}
+                    <button type="button" onClick={() => { setForgotStep('email'); setMessage('') }}
                       style={{ color: C.inkFaint, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}
                       onMouseEnter={e => (e.currentTarget.style.color = C.teal)}
                       onMouseLeave={e => (e.currentTarget.style.color = C.inkFaint)}>
