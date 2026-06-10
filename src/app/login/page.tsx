@@ -176,7 +176,7 @@ function LoginPageInner() {
     setLoading(true); setMessage(''); setIsError(false)
     const { error } = await supabase.auth.resetPasswordForEmail(email)
     if (error) { setMessage(error.message); setIsError(true) }
-    else { setForgotStep('code'); setMessage('A 6-digit code was sent to your email.') }
+    else { setForgotStep('code'); setMessage('A 8-digit code was sent to your email.') }
     setLoading(false)
   }
 
@@ -273,10 +273,10 @@ function LoginPageInner() {
                 : 'Welcome back'}
             </h1>
             <p style={{ color: C.inkMuted, fontSize: 13, marginBottom: 24, lineHeight: 1.5 }}>
-              {signupOtpPending ? `We sent a 6-digit code to ${email}. Enter it below to confirm your account.`
-                : forgotStep === 'code' ? `We sent a 6-digit code to ${email}.`
+              {signupOtpPending ? `We sent a 8-digit code to ${email}. Enter it below to confirm your account.`
+                : forgotStep === 'code' ? `We sent a 8-digit code to ${email}.`
                 : forgotStep === 'newpass' ? 'Choose a new password for your account.'
-                : isForgot ? 'Enter your email and we\'ll send a 6-digit code.'
+                : isForgot ? 'Enter your email and we\'ll send a 8-digit code.'
                 : isSignUp ? 'Start tracking your college applications for free.'
                 : 'Sign in to continue planning your application season.'}
             </p>
@@ -307,9 +307,9 @@ function LoginPageInner() {
             {signupOtpPending ? (
               <form onSubmit={handleVerifySignupOtp} className="space-y-4">
                 <div>
-                  <label style={{ display:'block', color:C.inkMuted, fontSize:12, fontWeight:500, marginBottom:6 }}>6-digit code</label>
-                  <input type="text" value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required
-                    placeholder="123456" maxLength={6} inputMode="numeric"
+                  <label style={{ display:'block', color:C.inkMuted, fontSize:12, fontWeight:500, marginBottom:6 }}>8-digit code</label>
+                  <input type="text" value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))} required
+                    placeholder="12345678" maxLength={8} inputMode="numeric"
                     style={{ ...inputStyle, letterSpacing: '0.2em', fontSize: 18, textAlign: 'center' }}
                     onFocus={e => (e.target.style.borderColor = C.teal)}
                     onBlur={e => (e.target.style.borderColor = C.border)}/>
@@ -317,7 +317,7 @@ function LoginPageInner() {
                 {message && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: isError ? '#F5DDD9' : C.paleTeal, color: isError ? C.danger : C.teal, border: `1px solid ${isError ? C.danger+'33' : C.teal+'33'}`, fontSize: 13 }}>{message}</div>}
                 <button type="submit" disabled={loading || otpCode.length < 6} className="w-full rounded-[10px] text-sm font-semibold transition-all duration-200"
                   style={{ padding: '11px 16px', background: C.teal, color: 'white', border: 'none', cursor: (loading || otpCode.length < 6) ? 'not-allowed' : 'pointer', opacity: (loading || otpCode.length < 6) ? 0.7 : 1 }}
-                  onMouseEnter={e => { if (!loading && otpCode.length === 6) (e.currentTarget as HTMLElement).style.background = '#267970' }}
+                  onMouseEnter={e => { if (!loading && otpCode.length >= 6) (e.currentTarget as HTMLElement).style.background = '#267970' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.teal }}>
                   {loading ? 'Verifying…' : 'Confirm account'}
                 </button>
@@ -351,9 +351,9 @@ function LoginPageInner() {
             ) : forgotStep === 'code' ? (
               <form onSubmit={handleVerifyOtp} className="space-y-4">
                 <div>
-                  <label style={{ display:'block', color:C.inkMuted, fontSize:12, fontWeight:500, marginBottom:6 }}>6-digit code</label>
-                  <input type="text" value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required
-                    placeholder="123456" maxLength={6} inputMode="numeric"
+                  <label style={{ display:'block', color:C.inkMuted, fontSize:12, fontWeight:500, marginBottom:6 }}>8-digit code</label>
+                  <input type="text" value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 8))} required
+                    placeholder="12345678" maxLength={8} inputMode="numeric"
                     style={{ ...inputStyle, letterSpacing: '0.2em', fontSize: 18, textAlign: 'center' }}
                     onFocus={e => (e.target.style.borderColor = C.teal)}
                     onBlur={e => (e.target.style.borderColor = C.border)}/>
@@ -361,7 +361,7 @@ function LoginPageInner() {
                 {message && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: isError ? '#F5DDD9' : C.paleTeal, color: isError ? C.danger : C.teal, border: `1px solid ${isError ? C.danger+'33' : C.teal+'33'}`, fontSize: 13 }}>{message}</div>}
                 <button type="submit" disabled={loading || otpCode.length < 6} className="w-full rounded-[10px] text-sm font-semibold transition-all duration-200"
                   style={{ padding: '11px 16px', background: C.teal, color: 'white', border: 'none', cursor: (loading || otpCode.length < 6) ? 'not-allowed' : 'pointer', opacity: (loading || otpCode.length < 6) ? 0.7 : 1 }}
-                  onMouseEnter={e => { if (!loading && otpCode.length === 6) (e.currentTarget as HTMLElement).style.background = '#267970' }}
+                  onMouseEnter={e => { if (!loading && otpCode.length >= 6) (e.currentTarget as HTMLElement).style.background = '#267970' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.teal }}>
                   {loading ? 'Verifying…' : 'Verify code'}
                 </button>
