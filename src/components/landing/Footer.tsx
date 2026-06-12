@@ -19,6 +19,7 @@ export default function Footer() {
           <Link href="/login" className="hover:underline">Sign in</Link>
           <a href="#features" className="hover:underline">Features</a>
           <Link href="/privacy" className="hover:underline">Privacy</Link>
+          <Link href="/terms" className="hover:underline">Terms</Link>
         </div>
       </div>
     </footer>
