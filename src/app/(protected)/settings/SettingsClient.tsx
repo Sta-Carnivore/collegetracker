@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Check, Loader2, ExternalLink, Crown, Zap, Eye, EyeOff, AlertTriangle, X } from 'lucide-react'
+import { Check, Loader2, ExternalLink, Crown, Zap, AlertTriangle, X } from 'lucide-react'
 import { C } from '@/lib/atlas'
 import { useToast } from '@/components/ui/Toast'
 
@@ -224,88 +224,6 @@ function ProfileSection({ initialName, initialYear, initialGpa, initialSat, init
           onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = C.teal}>
           {saving ? <Loader2 size={13} className="animate-spin"/> : <Check size={13}/>}
           Save profile
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* ── Password section ─────────────────────────────────── */
-function PasswordSection() {
-  const { toast } = useToast()
-  const [current,  setCurrent]  = useState('')
-  const [next,     setNext]     = useState('')
-  const [confirm,  setConfirm]  = useState('')
-  const [showCur,  setShowCur]  = useState(false)
-  const [showNext, setShowNext] = useState(false)
-  const [saving,   setSaving]   = useState(false)
-  const [err,      setErr]      = useState('')
-
-  async function changePassword() {
-    setErr('')
-    if (next !== confirm) { setErr('New passwords do not match.'); return }
-    if (next.length < 8)  { setErr('Password must be at least 8 characters.'); return }
-    setSaving(true)
-    const res = await fetch('/api/settings/password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: next }),
-    })
-    const data = await res.json()
-    setSaving(false)
-    if (res.ok) {
-      toast('Password updated')
-      setCurrent(''); setNext(''); setConfirm('')
-    } else {
-      setErr(data.error ?? 'Something went wrong.')
-    }
-  }
-
-  const pwInput = (value: string, onChange: (v: string) => void, placeholder: string, show: boolean, toggle: () => void) => (
-    <div className="relative">
-      <input type={show ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder} style={{ ...inputStyle, paddingRight: 40 }}
-        onFocus={e => (e.currentTarget.style.borderColor = C.teal)}
-        onBlur={e => (e.currentTarget.style.borderColor = C.border)}/>
-      <button type="button" onClick={toggle}
-        className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-80 transition-opacity"
-        style={{ color: C.ink }}>
-        {show ? <EyeOff size={15}/> : <Eye size={15}/>}
-      </button>
-    </div>
-  )
-
-  return (
-    <div style={cardStyle}>
-      <p style={sectionTitle}>Change Password</p>
-      <div className="space-y-3">
-        <div>
-          <label style={labelStyle}>Current password</label>
-          {pwInput(current, setCurrent, '••••••••', showCur, () => setShowCur(v => !v))}
-        </div>
-        <div>
-          <label style={labelStyle}>New password</label>
-          {pwInput(next, setNext, 'At least 8 characters', showNext, () => setShowNext(v => !v))}
-        </div>
-        <div>
-          <label style={labelStyle}>Confirm new password</label>
-          {pwInput(confirm, setConfirm, 'Same as above', showNext, () => setShowNext(v => !v))}
-        </div>
-
-        {err && (
-          <div className="flex items-center gap-2 text-xs rounded-lg px-3 py-2"
-            style={{ background: '#F5DDD9', color: C.danger, border: `1px solid ${C.danger}30` }}>
-            <AlertTriangle size={12}/> {err}
-          </div>
-        )}
-
-        <button onClick={changePassword} disabled={saving || !current || !next || !confirm}
-          className="flex items-center gap-2 text-sm rounded-xl px-4 py-2 font-semibold transition-all disabled:opacity-40"
-          style={{ background: C.teal, color: 'white' }}
-          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#267970'}
-          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = C.teal}>
-          {saving ? <Loader2 size={13} className="animate-spin"/> : <Check size={13}/>}
-          Update password
         </button>
       </div>
     </div>
@@ -562,8 +480,6 @@ function SettingsInner({
     else if (success) toast('You\'re now Pro! All features unlocked.')
   }, [success, toast])
 
-  const isEmailProvider = provider === 'email'
-
   return (
     <div style={{ color: C.ink }}>
       <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(1.4rem,2vw,1.8rem)', color: C.inkStrong, fontWeight: 600, marginBottom: 6 }}>
@@ -585,8 +501,6 @@ function SettingsInner({
           initialName={initialName} initialYear={initialYear}
           initialGpa={initialGpa} initialSat={initialSat} initialAct={initialAct}
           initialMajors={initialMajors}/>
-
-        {isEmailProvider && <PasswordSection/>}
 
         <PlanSection isPro={isPro} subscriptionPeriod={subscriptionPeriod} resumeCallsUsed={resumeCallsUsed}/>
 

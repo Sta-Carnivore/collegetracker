@@ -10,7 +10,7 @@ const tabs = [
   { href: '/tracker',     label: 'Tracker', icon: Table2 },
   { href: '/resume',      label: 'Resume',  icon: FileText },
   { href: '/bio',         label: 'Bio',     icon: Globe },
-  { href: '/ai/strategy', label: 'Plan',    icon: CalendarRange },
+  { href: '/planner',     label: 'Planner',  icon: CalendarRange },
 ]
 
 export default function BottomNav() {

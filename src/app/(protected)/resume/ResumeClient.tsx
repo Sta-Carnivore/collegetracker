@@ -178,7 +178,7 @@ export default function ResumeClient({ initialParsed, callsUsed, isPro }: Props)
           <Lock size={14}/>
           {isPro
             ? `You've used all ${monthlyLimit} resume analyses this month. Your limit resets next month.`
-            : `You've reached the ${monthlyLimit}/month free limit. Upgrade to Pro for 20/month.`}
+            : `You've reached the ${monthlyLimit}/month free limit. Upgrade to Pro for 10/month.`}
         </div>
       )}
 
