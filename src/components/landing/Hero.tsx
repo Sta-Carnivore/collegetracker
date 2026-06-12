@@ -84,7 +84,7 @@ export default function Hero() {
                 </div>
               ))}
             </div>
-            <p style={{ color: C.inkFaint, fontSize: '0.8rem' }}>Students using ApplyTracker for their 2025 apps</p>
+            <p style={{ color: C.inkFaint, fontSize: '0.8rem' }}>Students using ApplyTracker for their 2026–27 apps</p>
           </div>
         </div>
 

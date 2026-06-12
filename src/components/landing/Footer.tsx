@@ -18,6 +18,7 @@ export default function Footer() {
         <div className="flex gap-5 text-xs" style={{ color: C.inkFaint }}>
           <Link href="/login" className="hover:underline">Sign in</Link>
           <a href="#features" className="hover:underline">Features</a>
+          <Link href="/privacy" className="hover:underline">Privacy</Link>
         </div>
       </div>
     </footer>
