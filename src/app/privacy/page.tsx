@@ -159,7 +159,7 @@ const PRIVACY_CONTENT = `
 <div id="contact" style="line-height:1.5"><strong><span data-custom-class="heading_1"><h2>14. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?</h2></span></strong></div>
 <div style="line-height:1.5"><span data-custom-class="body_text">If you have questions or comments about this notice, you may email us at <a href="mailto:stava.ziyi@gmail.com" data-custom-class="link">stava.ziyi@gmail.com</a> or contact us by post at:</span></div>
 <div style="line-height:1.5"><br></div>
-<div style="line-height:1.5"><span data-custom-class="body_text">Chenyi Yang<br>5602 Sylmar Rd<br>Houston, TX 77081<br>United States</span></div>
+<div style="line-height:1.5"><span data-custom-class="body_text">Chenyi Yang<br>Houston, TX, United States</span></div>
 
 <div style="line-height:1.5"><br></div>
 <div id="request" style="line-height:1.5"><strong><span data-custom-class="heading_1"><h2>15. HOW CAN YOU REVIEW, UPDATE, OR DELETE THE DATA WE COLLECT FROM YOU?</h2></span></strong></div>

@@ -144,6 +144,7 @@ function LoginPageInner() {
   const [message,          setMessage]          = useState('')
   const [isError,          setIsError]          = useState(false)
   const [ready,            setReady]            = useState(false)
+  const [agreedToTerms,    setAgreedToTerms]    = useState(false)
 
   const isForgot = forgotStep !== 'off'
   const supabase = createClient()
@@ -296,6 +297,16 @@ function LoginPageInner() {
               Continue with Google
             </button>}
 
+            {/* Terms note under Google for signup */}
+            {!isForgot && !signupOtpPending && isSignUp && (
+              <p style={{ textAlign: 'center', color: C.inkFaint, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
+                By continuing with Google, you agree to our{' '}
+                <a href="/terms" target="_blank" style={{ color: C.inkFaint, textDecoration: 'underline' }}>Terms</a>
+                {' '}and{' '}
+                <a href="/privacy" target="_blank" style={{ color: C.inkFaint, textDecoration: 'underline' }}>Privacy Policy</a>
+              </p>
+            )}
+
             {/* Divider — hidden on forgot/signup-otp screens */}
             {!isForgot && !signupOtpPending && <div className="flex items-center gap-3 my-5">
               <div className="flex-1 h-px" style={{ background: C.border }}/>
@@ -419,6 +430,20 @@ function LoginPageInner() {
                 />
               </div>
 
+              {/* Terms checkbox — signup only */}
+              {isSignUp && (
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)}
+                    style={{ marginTop: 2, accentColor: C.teal, flexShrink: 0, width: 15, height: 15 }}/>
+                  <span style={{ fontSize: 12, color: C.inkMuted, lineHeight: 1.5 }}>
+                    I agree to the{' '}
+                    <a href="/terms" target="_blank" style={{ color: C.teal, textDecoration: 'underline' }}>Terms and Conditions</a>
+                    {' '}and{' '}
+                    <a href="/privacy" target="_blank" style={{ color: C.teal, textDecoration: 'underline' }}>Privacy Policy</a>
+                  </span>
+                </label>
+              )}
+
               {/* Message */}
               {message && (
                 <div className="rounded-xl px-4 py-3 text-sm" style={{
@@ -432,10 +457,10 @@ function LoginPageInner() {
               )}
 
               {/* Submit */}
-              <button type="submit" disabled={loading}
+              <button type="submit" disabled={loading || (isSignUp && !agreedToTerms)}
                 className="w-full rounded-[10px] text-sm font-semibold transition-all duration-200"
-                style={{ padding: '11px 16px', background: C.teal, color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
-                onMouseEnter={e => { if (!loading) (e.currentTarget).style.background = '#267970' }}
+                style={{ padding: '11px 16px', background: C.teal, color: 'white', border: 'none', cursor: (loading || (isSignUp && !agreedToTerms)) ? 'not-allowed' : 'pointer', opacity: (loading || (isSignUp && !agreedToTerms)) ? 0.5 : 1 }}
+                onMouseEnter={e => { if (!loading && !(isSignUp && !agreedToTerms)) (e.currentTarget).style.background = '#267970' }}
                 onMouseLeave={e => { (e.currentTarget).style.background = C.teal }}>
                 {loading ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}
               </button>

@@ -49,13 +49,13 @@ const TERMS_CONTENT = `
 
 <div style="line-height:1.5"><strong><span data-custom-class="heading_1"><h2>AGREEMENT TO OUR LEGAL TERMS</h2></span></strong></div>
 
-<div data-custom-class="body_text" style="line-height:1.5">We are <strong>Chenyi Yang</strong>, doing business as <strong>ApplyTracker</strong> ("Company," "we," "us," "our"), a company registered in Texas, United States at 5602 Sylmar Rd, Houston, TX 77081.</div>
+<div data-custom-class="body_text" style="line-height:1.5">We are <strong>Chenyi Yang</strong>, doing business as <strong>ApplyTracker</strong> ("Company," "we," "us," "our"), a company registered in Texas, United States.</div>
 <div style="line-height:1;"><br></div>
 <div data-custom-class="body_text" style="line-height:1.5">We operate the website <a href="https://applytracker.io" data-custom-class="link">https://applytracker.io</a> (the "Site"), as well as any other related products and services that refer or link to these legal terms (collectively, the "Services").</div>
 <div style="line-height:1;"><br></div>
 <div data-custom-class="body_text" style="line-height:1.5">ApplyTracker is a college application tracking platform that helps students organize schools, deadlines, essays, and materials. Includes AI-powered resume analysis and bio website generation.</div>
 <div style="line-height:1;"><br></div>
-<div data-custom-class="body_text" style="line-height:1.5">You can contact us by phone at (832) 867-8428, email at <a href="mailto:stava.ziyi@gmail.com" data-custom-class="link">stava.ziyi@gmail.com</a>, or by mail to 5602 Sylmar Rd, Houston, TX 77081, United States.</div>
+<div data-custom-class="body_text" style="line-height:1.5">You can contact us by email at <a href="mailto:stava.ziyi@gmail.com" data-custom-class="link">stava.ziyi@gmail.com</a>.</div>
 <div style="line-height:1;"><br></div>
 <div data-custom-class="body_text" style="line-height:1.5">These Legal Terms constitute a legally binding agreement between you and Chenyi Yang, concerning your access to and use of the Services. You agree that by accessing the Services, you have read, understood, and agreed to be bound by all of these Legal Terms. IF YOU DO NOT AGREE WITH ALL OF THESE LEGAL TERMS, THEN YOU ARE EXPRESSLY PROHIBITED FROM USING THE SERVICES AND YOU MUST DISCONTINUE USE IMMEDIATELY.</div>
 <div style="line-height:1;"><br></div>
@@ -272,5 +272,5 @@ const TERMS_CONTENT = `
 <div id="contact" data-custom-class="heading_1" style="line-height:1.5"><strong><h2>26. CONTACT US</h2></strong></div>
 <div data-custom-class="body_text" style="line-height:1.5">In order to resolve a complaint regarding the Services or to receive further information regarding use of the Services, please contact us at:</div>
 <div style="line-height:1.5"><br></div>
-<div data-custom-class="body_text" style="line-height:1.5"><strong>Chenyi Yang</strong><br>5602 Sylmar Rd<br>Houston, TX 77081<br>United States<br>Phone: (832) 867-8428<br><a href="mailto:stava.ziyi@gmail.com" data-custom-class="link">stava.ziyi@gmail.com</a></div>
+<div data-custom-class="body_text" style="line-height:1.5"><strong>Chenyi Yang</strong><br>Houston, TX, United States<br><a href="mailto:stava.ziyi@gmail.com" data-custom-class="link">stava.ziyi@gmail.com</a></div>
 `
