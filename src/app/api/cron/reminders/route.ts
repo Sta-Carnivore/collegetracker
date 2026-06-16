@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     admin.from('school_rounds').select('*'),
   ])
 
+  console.log(`[cron:reminders] schools fetched:${schoolsRes.data?.length ?? 0} error:${schoolsRes.error?.message ?? 'none'}`)
   const schoolsById: Record<string, School> = {}
   for (const s of (schoolsRes.data ?? []) as School[]) schoolsById[s.id] = s
 
