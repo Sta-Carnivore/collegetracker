@@ -36,14 +36,19 @@ export async function GET(request: NextRequest) {
 
   const eligibleIds = eligibleUsers.map(u => u.id)
 
-  // Fetch all data in parallel
-  const [appsRes, schoolsRes, roundsRes] = await Promise.all([
-    admin.from('applications').select('*').in('user_id', eligibleIds),
-    admin.from('schools').select('*'),
-    admin.from('school_rounds').select('*'),
+  // Fetch applications first, then only the schools/rounds we actually need
+  const appsRes = await admin.from('applications').select('*').in('user_id', eligibleIds)
+
+  const schoolIds = [...new Set((appsRes.data ?? []).map(a => a.school_id).filter(Boolean))]
+  const [schoolsRes, roundsRes] = await Promise.all([
+    schoolIds.length > 0
+      ? admin.from('schools').select('*').in('id', schoolIds)
+      : Promise.resolve({ data: [], error: null }),
+    schoolIds.length > 0
+      ? admin.from('school_rounds').select('*').in('school_id', schoolIds)
+      : Promise.resolve({ data: [], error: null }),
   ])
 
-  console.log(`[cron:reminders] schools fetched:${schoolsRes.data?.length ?? 0} error:${schoolsRes.error?.message ?? 'none'}`)
   const schoolsById: Record<string, School> = {}
   for (const s of (schoolsRes.data ?? []) as School[]) schoolsById[s.id] = s
 
@@ -64,8 +69,7 @@ export async function GET(request: NextRequest) {
     if (userApps.length === 0) { console.log(`[cron:reminders] ${user_id} skip — no apps`); skipped++; continue }
 
     const events = computePlannerEvents({ applications: userApps, schoolsById, roundsBySchool })
-    const missingSchools = userApps.filter(a => !schoolsById[a.school_id]).map(a => a.school_id)
-    console.log(`[cron:reminders] ${user_id} apps:${userApps.length} events:${events.length} missingSchools:${missingSchools.length > 0 ? missingSchools.join(',') : 'none'} deadlineEvents:${events.filter(e=>e.kind==='deadline').map(e=>`${e.schoolName}(${e.daysUntil}d)`).join(',')}`)
+    console.log(`[cron:reminders] ${user_id} apps:${userApps.length} events:${events.length} deadlines:${events.filter(e=>e.kind==='deadline').map(e=>`${e.schoolName}(${e.daysUntil}d)`).join(',')}`)
 
     // Events that fire today (daysUntil matches a send offset)
     const todayEvents = events.filter(e =>
