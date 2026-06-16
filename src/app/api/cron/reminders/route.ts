@@ -63,7 +63,8 @@ export async function GET(request: NextRequest) {
     if (userApps.length === 0) { console.log(`[cron:reminders] ${user_id} skip — no apps`); skipped++; continue }
 
     const events = computePlannerEvents({ applications: userApps, schoolsById, roundsBySchool })
-    console.log(`[cron:reminders] ${user_id} apps:${userApps.length} events:${events.length} deadlineEvents:${events.filter(e=>e.kind==='deadline').map(e=>`${e.schoolName}(${e.daysUntil}d)`).join(',')}`)
+    const missingSchools = userApps.filter(a => !schoolsById[a.school_id]).map(a => a.school_id)
+    console.log(`[cron:reminders] ${user_id} apps:${userApps.length} events:${events.length} missingSchools:${missingSchools.length > 0 ? missingSchools.join(',') : 'none'} deadlineEvents:${events.filter(e=>e.kind==='deadline').map(e=>`${e.schoolName}(${e.daysUntil}d)`).join(',')}`)
 
     // Events that fire today (daysUntil matches a send offset)
     const todayEvents = events.filter(e =>
