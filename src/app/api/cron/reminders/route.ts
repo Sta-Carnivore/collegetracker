@@ -62,20 +62,39 @@ export async function GET(request: NextRequest) {
     ;(appsByUser[app.user_id] ??= []).push(app)
   }
 
+  // Also fetch custom reminders (user-created events, not derived from applications)
+  const { data: customRows } = await admin
+    .from('reminders')
+    .select('id, user_id, title, due_at')
+    .in('user_id', eligibleIds)
+    .eq('kind', 'custom')
+    .eq('status', 'active')
+
+  const customByUser: Record<string, { key: string; title: string; dueAt: string; daysUntil: number }[]> = {}
+  for (const r of customRows ?? []) {
+    if (!r.due_at) continue
+    const days = daysFromNow(new Date(r.due_at))
+    ;(customByUser[r.user_id] ??= []).push({ key: `custom:${r.id}`, title: r.title, dueAt: r.due_at, daysUntil: days })
+  }
+
   let sent = 0, skipped = 0, errors = 0
 
   for (const { id: user_id } of eligibleUsers) {
     const userApps = appsByUser[user_id] ?? []
-    if (userApps.length === 0) { console.log(`[cron:reminders] ${user_id} skip — no apps`); skipped++; continue }
-
-    const events = computePlannerEvents({ applications: userApps, schoolsById, roundsBySchool })
-    console.log(`[cron:reminders] ${user_id} apps:${userApps.length} events:${events.length} deadlines:${events.filter(e=>e.kind==='deadline').map(e=>`${e.schoolName}(${e.daysUntil}d)`).join(',')}`)
+    const derived = userApps.length > 0
+      ? computePlannerEvents({ applications: userApps, schoolsById, roundsBySchool })
+      : []
+    const custom = customByUser[user_id] ?? []
 
     // Events that fire today (daysUntil matches a send offset)
-    const todayEvents = events.filter(e =>
-      e.kind === 'deadline' && offsets.has(e.daysUntil),
-    )
-    if (todayEvents.length === 0) { skipped++; continue }
+    const todayDerived = derived.filter(e => e.kind === 'deadline' && offsets.has(e.daysUntil))
+    const todayCustom = custom.filter(e => offsets.has(e.daysUntil))
+
+    const events = [
+      ...todayDerived.map(e => ({ key: e.key, title: `${e.schoolName} — ${e.round}`, dueAt: e.dueAt, daysUntil: e.daysUntil, kind: e.kind as string })),
+      ...todayCustom.map(e => ({ key: e.key, title: e.title, dueAt: e.dueAt, daysUntil: e.daysUntil, kind: 'deadline' })),
+    ]
+    if (events.length === 0) { skipped++; continue }
 
     // Check idempotency — skip events already delivered at this offset
     const { data: existing } = await admin
@@ -83,13 +102,13 @@ export async function GET(request: NextRequest) {
       .select('event_key, offset_days')
       .eq('user_id', user_id)
       .eq('status', 'sent')
-      .in('event_key', todayEvents.map(e => e.key))
+      .in('event_key', events.map(e => e.key))
 
     const alreadySent = new Set(
       (existing ?? []).map(r => `${r.event_key}:${r.offset_days}`),
     )
 
-    const newEvents = todayEvents.filter(
+    const newEvents = events.filter(
       e => !alreadySent.has(`${e.key}:${e.daysUntil}`),
     )
     if (newEvents.length === 0) { skipped++; continue }
@@ -100,7 +119,7 @@ export async function GET(request: NextRequest) {
     if (!email) { skipped++; continue }
 
     const items = newEvents.map(e => ({
-      title: `${e.schoolName} — ${e.round}`,
+      title: e.title,
       dueAt: e.dueAt,
       whenLabel: e.daysUntil === 0
         ? 'Due today'
@@ -122,7 +141,7 @@ export async function GET(request: NextRequest) {
       event_key: e.key,
       offset_days: e.daysUntil,
       scheduled_for: new Date().toISOString(),
-      severity_score: calculateReminderScore({ daysUntil: e.daysUntil, kind: e.kind }),
+      severity_score: calculateReminderScore({ daysUntil: e.daysUntil, kind: 'deadline' }),
       status: result.sent ? 'sent' : 'failed',
       ...(result.sent ? { sent_at: new Date().toISOString() } : {}),
     }))
