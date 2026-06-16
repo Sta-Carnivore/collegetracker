@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   // Only users who are pro AND have opted in to email reminders
   const { data: eligibleUsers, error: usersError } = await admin
     .from('users')
-    .select('user_id, reminder_email_enabled')
+    .select('id, reminder_email_enabled')
     .eq('is_pro', true)
     .eq('reminder_email_enabled', true)
 
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, sent: 0, skipped: 0, errors: 0 })
   }
 
-  const eligibleIds = eligibleUsers.map(u => u.user_id)
+  const eligibleIds = eligibleUsers.map(u => u.id)
 
   // Fetch all data in parallel
   const [appsRes, schoolsRes, roundsRes] = await Promise.all([
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 
   let sent = 0, skipped = 0, errors = 0
 
-  for (const { user_id } of eligibleUsers) {
+  for (const { id: user_id } of eligibleUsers) {
     const userApps = appsByUser[user_id] ?? []
     if (userApps.length === 0) { skipped++; continue }
 

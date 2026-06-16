@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Check, Loader2, ExternalLink, Crown, Zap, AlertTriangle, X } from 'lucide-react'
+import { Check, Loader2, ExternalLink, Crown, Zap, AlertTriangle, X, Bell } from 'lucide-react'
 import { C } from '@/lib/atlas'
 import { useToast } from '@/components/ui/Toast'
 
@@ -18,6 +18,7 @@ interface Props {
   initialSat: number | null
   initialAct: number | null
   initialMajors: string[]
+  initialReminderEmail: boolean
 }
 
 /* ── Shared styles ────────────────────────────────────── */
@@ -71,7 +72,7 @@ const POPULAR_MAJORS = [
 const PRO_FEATURES = [
   'Bio Website Generator (5/month)',
   'AI Resume parsing (10/month)',
-  'Email deadline reminders (coming soon)',
+  'Email deadline reminders',
 ]
 
 /* ── Profile section ──────────────────────────────────── */
@@ -356,6 +357,67 @@ function PlanSection({ isPro, subscriptionPeriod, resumeCallsUsed }: {
   )
 }
 
+/* ── Notifications section ────────────────────────────── */
+function NotificationsSection({ initialEnabled }: { initialEnabled: boolean }) {
+  const { toast } = useToast()
+  const [enabled, setEnabled] = useState(initialEnabled)
+  const [saving, setSaving] = useState(false)
+
+  async function toggle() {
+    const next = !enabled
+    setEnabled(next)
+    setSaving(true)
+    const res = await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reminder_email_enabled: next }),
+    })
+    setSaving(false)
+    if (!res.ok) {
+      setEnabled(!next)
+      toast('Failed to save', 'error')
+    }
+  }
+
+  return (
+    <div style={cardStyle}>
+      <p style={sectionTitle}>Notifications</p>
+      <div className="flex items-center justify-between gap-4 py-1">
+        <div className="flex items-start gap-3">
+          <Bell size={16} style={{ color: C.teal, flexShrink: 0, marginTop: 2 }}/>
+          <div>
+            <p style={{ color: C.inkStrong, fontSize: 14, fontWeight: 500 }}>Email deadline reminders</p>
+            <p style={{ color: C.inkFaint, fontSize: 12, marginTop: 2 }}>
+              Reminders at 30, 15, 7, 3, 2, and 0 days before each deadline.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={saving}
+          aria-label={enabled ? 'Disable email reminders' : 'Enable email reminders'}
+          className="flex-shrink-0 relative disabled:opacity-60"
+          style={{
+            width: 44, height: 24, borderRadius: 12,
+            background: enabled ? C.teal : C.border,
+            border: 'none', cursor: saving ? 'not-allowed' : 'pointer',
+            transition: 'background 0.2s',
+            padding: 0,
+          }}>
+          <span style={{
+            position: 'absolute', top: 3, left: enabled ? 23 : 3,
+            width: 18, height: 18, borderRadius: 9,
+            background: 'white',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            transition: 'left 0.2s',
+            display: 'block',
+          }}/>
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ── Danger zone ──────────────────────────────────────── */
 function DangerZone({ email }: { email: string }) {
   const { toast } = useToast()
@@ -467,6 +529,7 @@ function DangerZone({ email }: { email: string }) {
 function SettingsInner({
   email, provider, isPro, subscriptionPeriod, resumeCallsUsed,
   initialName, initialYear, initialGpa, initialSat, initialAct, initialMajors,
+  initialReminderEmail,
 }: Props) {
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -503,6 +566,8 @@ function SettingsInner({
           initialMajors={initialMajors}/>
 
         <PlanSection isPro={isPro} subscriptionPeriod={subscriptionPeriod} resumeCallsUsed={resumeCallsUsed}/>
+
+        {isPro && <NotificationsSection initialEnabled={initialReminderEmail}/>}
 
         <DangerZone email={email}/>
       </div>
