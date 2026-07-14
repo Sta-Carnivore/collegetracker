@@ -37,9 +37,13 @@ export async function POST(request: NextRequest) {
         bio_refines_used: 0,
       }).eq('id', userId)
     } else if (userId && period) {
-      // Pro subscription (monthly or quarterly).
+      // Pro subscription (monthly or quarterly). Also persist stripe_customer_id
+      // here as a belt-and-suspenders — the checkout route writes it too, but the
+      // webhook is the authoritative source, and subscription.deleted / .updated
+      // match rows by stripe_customer_id so it MUST be present.
       await supabaseAdmin.from('users').update({
         is_pro: true,
+        stripe_customer_id: session.customer as string,
         stripe_subscription_id: session.subscription as string,
         subscription_period: period as 'monthly' | 'quarterly',
       }).eq('id', userId)

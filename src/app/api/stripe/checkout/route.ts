@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
@@ -27,16 +28,21 @@ export async function POST(request: NextRequest) {
 
   let customerId = userData?.stripe_customer_id
 
-  // Create Stripe customer if doesn't exist
+  // Create Stripe customer if doesn't exist. Use the admin client to write
+  // stripe_customer_id — it's not in the authenticated column grant (users must
+  // not be able to set their own customer ID) so the user session would be silently
+  // rejected by RLS.
   if (!customerId) {
     const customer = await stripe.customers.create({
       email: user.email!,
       metadata: { supabase_user_id: user.id },
     })
     customerId = customer.id
-    await supabase.from('users').update({
+    const admin = createAdminClient()
+    const { error } = await admin.from('users').update({
       stripe_customer_id: customerId,
     }).eq('id', user.id)
+    if (error) console.error('[checkout] failed to save stripe_customer_id:', error.message)
   }
 
   // Prefer the server-configured site URL; only fall back to the (client-controlled)
