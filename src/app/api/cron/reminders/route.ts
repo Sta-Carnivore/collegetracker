@@ -9,9 +9,11 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 export async function GET(request: NextRequest) {
+  // Only accept the secret via the Authorization header. A `?secret=` query param
+  // leaks into browser history, referrers, and server/proxy logs, so it was
+  // removed — configure the cron caller to send `Authorization: Bearer <secret>`.
   const auth = request.headers.get('authorization')
-  const tokenParam = request.nextUrl.searchParams.get('secret')
-  const token = auth?.replace('Bearer ', '') ?? tokenParam ?? ''
+  const token = auth?.replace('Bearer ', '') ?? ''
   if (!process.env.CRON_SECRET || token !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
