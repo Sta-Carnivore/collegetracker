@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import Stripe from 'stripe'
 import { NextResponse } from 'next/server'
 
 export async function DELETE() {
@@ -33,7 +34,21 @@ export async function DELETE() {
     if (error) console.error(`[account delete] ${table} cleanup failed:`, error.message)
   }
 
-  // 3. Delete the auth user. DB tables declared `on delete cascade` against
+  // 3. Cancel any live Stripe subscription BEFORE deleting the account, so a
+  //    deleted user never keeps getting billed. Best-effort: log and continue on
+  //    failure — a Stripe hiccup must not block account deletion.
+  try {
+    const { data: sub } = await admin
+      .from('users').select('stripe_subscription_id').eq('id', user.id).single()
+    if (sub?.stripe_subscription_id && process.env.STRIPE_SECRET_KEY) {
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+      await stripe.subscriptions.cancel(sub.stripe_subscription_id)
+    }
+  } catch (err) {
+    console.error('[account delete] stripe cancel failed:', err instanceof Error ? err.message : String(err))
+  }
+
+  // 4. Delete the auth user. DB tables declared `on delete cascade` against
   //    auth.users (public.users, profiles, applications, reminders,
   //    user_essay_progress) are removed with it.
   const { error } = await admin.auth.admin.deleteUser(user.id)
