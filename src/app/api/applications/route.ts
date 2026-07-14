@@ -10,7 +10,11 @@ export async function DELETE(request: NextRequest) {
   const school_id = searchParams.get('school_id')
   if (!school_id) return NextResponse.json({ error: 'school_id required' }, { status: 400 })
 
-  await supabase.from('applications').delete().eq('user_id', user.id).eq('school_id', school_id)
+  const { error } = await supabase.from('applications').delete().eq('user_id', user.id).eq('school_id', school_id)
+  if (error) {
+    console.error('[applications DELETE]', error.message)
+    return NextResponse.json({ error: 'Could not remove this school.' }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }
 
@@ -76,11 +80,15 @@ export async function PATCH(request: NextRequest) {
   if (intOrNull(supplemental_essays_total) !== undefined) fields.supplemental_essays_total = intOrNull(supplemental_essays_total)
 
   if (existing) {
-    await supabase.from('applications')
+    const { error } = await supabase.from('applications')
       .update({ ...fields, updated_at: new Date().toISOString() })
       .eq('id', existing.id)
+    if (error) {
+      console.error('[applications PATCH update]', error.message)
+      return NextResponse.json({ error: 'Could not save your changes.' }, { status: 500 })
+    }
   } else {
-    await supabase.from('applications').insert({
+    const { error } = await supabase.from('applications').insert({
       user_id: user.id,
       school_id,
       status: status ?? 'not_started',
@@ -91,6 +99,10 @@ export async function PATCH(request: NextRequest) {
       ...fields,
       updated_at: new Date().toISOString(),
     })
+    if (error) {
+      console.error('[applications PATCH insert]', error.message)
+      return NextResponse.json({ error: 'Could not save this school.' }, { status: 500 })
+    }
   }
 
   return NextResponse.json({ ok: true })
