@@ -24,6 +24,10 @@ language plpgsql
 security definer
 as $$
 begin
+  -- Callers must only increment their own counters.
+  if auth.uid() is distinct from p_user_id then
+    raise exception 'Unauthorized';
+  end if;
   if p_feature = 'resume' then
     update public.users
       set ai_resume_calls_this_month = coalesce(ai_resume_calls_this_month, 0) + 1

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isAdminEmail } from '@/lib/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
  * Usage quotas for the non-Bio AI features. Two independent pools:
@@ -78,12 +79,14 @@ export async function getAiQuota(
   const tier = tierOf(row as { is_pro?: boolean | null } | null, userEmail)
   const limit = tier === 'admin' ? -1 : tier === 'pro' ? cfg.proLimit : cfg.freeLimit
 
-  // Monthly reset (28-day rolling) for non-admins.
+  // Monthly reset (28-day rolling) for non-admins. Counter column is not in the
+  // authenticated RLS grant (users must not be able to zero their own counters),
+  // so the reset must go through the admin client.
   let used = (row as Record<string, number> | null)?.[cfg.counterCol] ?? 0
   let locked = (row as Record<string, boolean> | null)?.[cfg.lockCol] ?? false
   if (tier !== 'admin' && daysSince((row as Record<string, string> | null)?.[cfg.periodCol]) >= 28) {
     const today = new Date().toISOString().split('T')[0]
-    await supabase.from('users').update({ [cfg.counterCol]: 0, [cfg.periodCol]: today }).eq('id', userId)
+    await createAdminClient().from('users').update({ [cfg.counterCol]: 0, [cfg.periodCol]: today }).eq('id', userId)
     used = 0
   }
   // Re-read lock fresh isn't necessary; we have it from the row.

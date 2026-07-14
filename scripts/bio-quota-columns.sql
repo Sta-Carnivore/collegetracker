@@ -21,6 +21,10 @@ language plpgsql
 security definer
 as $$
 begin
+  -- Callers must only increment their own counters.
+  if auth.uid() is distinct from p_user_id then
+    raise exception 'Unauthorized';
+  end if;
   if p_credit = 'generate' then
     update public.users
       set bio_generates_used = bio_generates_used + 1

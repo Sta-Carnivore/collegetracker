@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isAdminEmail } from '@/lib/admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export type BioTier = 'free' | 'bio' | 'pro' | 'admin'
 export type BioCredit = 'generate' | 'refine' | 'css' | 'none'
@@ -68,7 +69,9 @@ async function maybeResetPeriod(
     updates.bio_generates_used = 0
     updates.bio_refines_used = 0
   }
-  await supabase.from('users').update(updates).eq('id', userId)
+  // Counter columns are not in the authenticated RLS grant (users must not be
+  // able to zero their own counters), so the reset must go through admin client.
+  await createAdminClient().from('users').update(updates).eq('id', userId)
   return true
 }
 

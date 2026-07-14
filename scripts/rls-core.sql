@@ -26,12 +26,13 @@ create policy users_update_own on public.users
 
 -- Column-level privileges: lock out everything except the usage/lock columns.
 revoke update on public.users from authenticated;
+-- Lock/period/preference columns only — pure counter columns are intentionally
+-- excluded so users cannot zero their own quota by sending a direct DB update.
+-- Counter writes go through SECURITY DEFINER RPCs (increment) or the admin
+-- client (period reset). See ai-quota-columns.sql / bio-quota-columns.sql.
 grant update (
-  ai_resume_calls_this_month,
   resume_period_start, resume_active_job, resume_last_job_at,
-  advisor_calls_used, advisor_period_start, advisor_active_job, advisor_last_job_at,
-  bio_generations_this_month,
-  bio_generates_used, bio_refines_used, bio_css_tweaks_used,
+  advisor_period_start, advisor_active_job, advisor_last_job_at,
   bio_usage_period_start, bio_active_job, bio_last_job_start_at,
   reminder_email_enabled, reminder_lead_days
 ) on public.users to authenticated;
