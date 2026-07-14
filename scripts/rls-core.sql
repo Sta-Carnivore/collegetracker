@@ -32,7 +32,8 @@ grant update (
   advisor_calls_used, advisor_period_start, advisor_active_job, advisor_last_job_at,
   bio_generations_this_month,
   bio_generates_used, bio_refines_used, bio_css_tweaks_used,
-  bio_usage_period_start, bio_active_job, bio_last_job_start_at
+  bio_usage_period_start, bio_active_job, bio_last_job_start_at,
+  reminder_email_enabled, reminder_lead_days
 ) on public.users to authenticated;
 -- No INSERT/DELETE for authenticated: rows are created by the handle_new_user
 -- trigger and account deletion goes through the admin API (service role).
