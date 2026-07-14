@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ensureCompleteDocument } from '@/lib/bioRender'
 import { saveBioVersion } from '@/lib/bioVersions'
 import { sanitizeBioHtml, validateSanitizedBioHtml } from '@/lib/bioSanitize'
+import { isAdminEmail } from '@/lib/admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,19 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Entitlement gate: generation is paywalled, so publishing must be too —
+  // otherwise a free user holding any HTML could push it live. Mirror the tier
+  // rule used in bio generation (admin / Pro / one-time bio purchase).
+  const { data: entRow } = await supabase
+    .from('users').select('is_pro, has_bio_purchase').eq('id', user.id).single()
+  const entitled = isAdminEmail(user.email ?? '') || !!entRow?.is_pro || !!entRow?.has_bio_purchase
+  if (!entitled) {
+    return NextResponse.json(
+      { error: 'Publishing a bio page requires Pro or a bio purchase.' },
+      { status: 403 },
+    )
+  }
 
   const { html: rawHtml, style, published: publishedFlag, snapshot } = await request.json()
   if (!rawHtml) return NextResponse.json({ error: 'No HTML provided' }, { status: 400 })
