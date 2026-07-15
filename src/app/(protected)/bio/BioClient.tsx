@@ -470,11 +470,15 @@ export default function BioClient({ profileName, resumeItems, hasResume, prefill
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ style, questionnaire }),
       })
-      const data = await res.json()
-      if (!res.ok) { setError(data.error ?? 'Generation failed. Please try again.'); return }
-      setHtml(data.html)
-      setScore(data.score ?? null)
-      setMetrics(data.metrics ?? null)
+      let data: Record<string, unknown>
+      try { data = await res.json() } catch {
+        setError('Generation failed (server error). Please try again in a moment.')
+        return
+      }
+      if (!res.ok) { setError((data.error as string) ?? 'Generation failed. Please try again.'); return }
+      setHtml(data.html as string)
+      setScore((data.score as number) ?? null)
+      setMetrics((data.metrics as BioMetrics) ?? null)
       setStep('preview')
       setPanelTab('refine')
       setChatLog([])  // fresh page → start a new refine log
@@ -524,21 +528,26 @@ export default function BioClient({ profileName, resumeItems, hasResume, prefill
           ...(preset ? { preset } : {}),
         }),
       })
-      const data = await res.json()
+      let data: Record<string, unknown>
+      try { data = await res.json() } catch {
+        mark('error', 'Server error. Please try again.')
+        toast('Refinement failed — server error', 'error')
+        return
+      }
       if (res.ok && data.no_change) {
         // Text-only request — server intentionally didn't touch the page.
-        mark('info', data.message)
+        mark('info', data.message as string)
         toast('No AI needed — click the text in the preview to edit it directly.', 'info')
       } else if (res.ok) {
-        setHtml(data.html)
-        if (data.metrics) setMetrics(data.metrics)
+        setHtml(data.html as string)
+        if (data.metrics) setMetrics(data.metrics as BioMetrics)
         mark('done')
-        persistDraft(data.html)
+        persistDraft(data.html as string)
         setHistoryKey(k => k + 1)
         refreshQuota()
       } else {
-        mark('error', data.error)
-        toast(data.error ?? 'Refinement failed', 'error')
+        mark('error', data.error as string)
+        toast((data.error as string) ?? 'Refinement failed', 'error')
       }
     } catch {
       mark('error')
