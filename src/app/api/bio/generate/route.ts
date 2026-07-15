@@ -668,7 +668,12 @@ function streamFinal(
   anthropic: Anthropic,
   params: Anthropic.MessageCreateParamsNonStreaming,
 ): Promise<Anthropic.Message> {
-  return anthropic.messages.stream(params).finalMessage()
+  const stream = anthropic.messages.stream(params)
+  // Without an explicit 'error' listener, any error emitted after
+  // finalMessage() settles becomes an unhandled EventEmitter error and
+  // crashes the Node.js process. Railway then returns "upstream error".
+  stream.on('error', () => {})
+  return stream.finalMessage()
 }
 
 export async function POST(request: NextRequest) {
@@ -876,7 +881,7 @@ export async function POST(request: NextRequest) {
       // 4b. Motif / layout / redesign → guarded full refine (Sonnet).
       const refineMsg = await streamFinal(anthropic, {
         model: 'claude-sonnet-4-6',
-        max_tokens: 24000,
+        max_tokens: 16000,
         system: A2_SYSTEM,
         messages: [{ role: 'user', content: buildFullRefinePrompt(mode, instruction, existing_html, STYLE_SPECS[style]) }],
       })
@@ -990,7 +995,7 @@ ${A1_OUTPUT_SCHEMA}`,
     step = 'agent2'
     const a2Msg = await streamFinal(anthropic, {
       model: 'claude-sonnet-4-6',
-      max_tokens: 24000,
+      max_tokens: 16000,
       system: A2_SYSTEM,
       messages: [{
         role: 'user',
@@ -1042,7 +1047,7 @@ Generate the complete portfolio HTML page now.`,
       step = 'agent3b'
       const a3bMsg = await streamFinal(anthropic, {
         model: 'claude-sonnet-4-6',
-        max_tokens: 24000,
+        max_tokens: 16000,
         system: A3B_SYSTEM,
         messages: [{
           role: 'user',
@@ -1093,9 +1098,11 @@ ${html}`,
     return NextResponse.json({ error: 'Generation failed. Please try again.' }, { status: 500 })
   } finally {
     // Always release the lock, then increment the counter (only on success).
-    if (lockAcquired) await releaseJobLock(supabase, userId)
+    // Both are best-effort: an error here must NOT override the already-sent
+    // response (or prevent it from being sent) by propagating out of finally.
+    if (lockAcquired) await releaseJobLock(supabase, userId).catch(() => {})
     if (creditConsumed !== 'none' && userId) {
-      await incrementUsage(supabase, userId, creditConsumed).catch(() => {/* best-effort */})
+      await incrementUsage(supabase, userId, creditConsumed).catch(() => {})
     }
   }
 }
