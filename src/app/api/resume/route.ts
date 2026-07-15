@@ -213,19 +213,22 @@ export async function POST(request: NextRequest) {
   // Run gap analysis + reformat
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 3600,
+    max_tokens: 8000,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: buildUserPrompt(resumeText, major, gpa, sat, act, schools) }],
   })
 
   step = 'parseJson'
   const raw = (message.content[0] as { type: string; text: string }).text.trim()
-  const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+  // Extract the outermost JSON object — more robust than stripping fences only.
+  const jsonMatch = raw.match(/\{[\s\S]*\}/)
+  const jsonStr = jsonMatch ? jsonMatch[0] : raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
 
   let analysisResult: Partial<ParsedResume> & { gaps: GapItem[]; reformatted: string }
   try {
     analysisResult = JSON.parse(jsonStr)
   } catch {
+    console.error('[resume] JSON parse failed. stop_reason:', message.stop_reason, '| raw[:300]:', raw.slice(0, 300))
     return NextResponse.json({ error: 'AI returned invalid response. Please try again.' }, { status: 500 })
   }
 
